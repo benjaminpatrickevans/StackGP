@@ -1,6 +1,7 @@
 import random
 import sys
 from inspect import isclass
+from deap import gp
 
 ######################################
 # GP Program generation functions    #
@@ -138,3 +139,64 @@ def add_terminal(pset, type_):
         term = term()
 
     return term
+
+
+def repeated_mutation(individual, expr, pset, existing, toolbox, max_tries=10):
+    """
+        Repeated apply mutUniform until the mutated individual has
+        not existed before.
+    :param individual:
+    :param expr:
+    :param pset:
+    :return:
+    """
+
+    # Try for max_tries, or until we generate a unique individual
+    for i in range(max_tries):
+        ind = toolbox.clone(individual)
+
+        mutated = gp.mutUniform(ind, expr, pset)
+
+        # mutUniform returns a tuple, so access the first element of the tuple and see if that is unique
+        if str(mutated[0]) not in existing:
+            break
+
+    return mutated
+
+
+def repeated_crossover(ind1, ind2, existing, toolbox, max_tries=10):
+    """
+        Repeatedly apply cxOnePoint until the generated individuals are
+        unique from the existing originals (or until max_tries is hit).
+        Thiw was inspired by tpots _mate_operator.
+    :param ind1:
+    :param ind2:
+    :param existing:
+    :param toolbox:
+    :param max_tries:
+    :return:
+    """
+    unique_offspring1 = None
+    unique_offspring2 = None
+
+    # Try for max_tries, or until we generate a unique individual
+    for i in range(max_tries):
+        ind1_copy, ind2_copy = toolbox.clone(ind1), toolbox.clone(ind2)
+
+        offspring1, offspring2 = gp.cxOnePoint(ind1_copy, ind2_copy)
+
+        if str(offspring1) not in existing:
+            unique_offspring1 = offspring1
+
+        if str(offspring2) not in existing:
+            unique_offspring2 = offspring2
+
+        # Only break once both are unique
+        if unique_offspring1 and unique_offspring2:
+            break
+
+    # If we didnt find a unique, then use the last (repeated) offspring generated
+    unique_offspring1 = unique_offspring1 or offspring1
+    unique_offspring2 = unique_offspring2 or offspring2
+
+    return unique_offspring1, unique_offspring2

@@ -15,20 +15,24 @@ class Base:
         rather use a base class.
     """
 
-    def __init__(self, pop_size, generations, crs_rate, mut_rate, verbose, random_state):
+    def __init__(self, pop_size, generations, crs_rate, mut_rate, max_depth, verbose, random_state):
 
         self.pop_size = pop_size
         self.generations = generations
         self.crs_rate = crs_rate
         self.mut_rate = mut_rate
+        self.max_depth = max_depth
         self.verbose = verbose
         self.random_state = random_state
 
+
+        # For generating unique models
+        self.cache = {}
+
         self.pset = Base.create_pset()
-        self.toolbox = Base.create_toolbox(self.pset)
+        self.toolbox = self.create_toolbox(self.pset)
 
         self.model = None
-        self.encoder = None
         self.imputer = None
         self.one_hot_encoding = None
 
@@ -44,8 +48,7 @@ class Base:
 
         return pset
 
-    @staticmethod
-    def create_toolbox(pset):
+    def create_toolbox(self, pset):
         toolbox = base.Toolbox()
 
         # Fitness is f1-score. So the larger the better
@@ -58,12 +61,15 @@ class Base:
         toolbox.register("expr", deapfix.genHalfAndHalf, pset=pset, min_=1, max_=3)
 
         # Crossover
-        toolbox.register("mate", gp.cxOnePoint)
+        toolbox.register("mate", deapfix.repeated_crossover, existing=self.cache, toolbox=toolbox)
 
         # Mutation
-        toolbox.register("expr_mut", deapfix.genFull, min_=1, max_=2)
-        toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
-        toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=2)
+        toolbox.register("mutate", deapfix.repeated_mutation, expr=toolbox.expr_mut, pset=pset, existing=self.cache,
+                         toolbox=toolbox)
+
+        toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
+        toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
 
         # Selection
         toolbox.register("select", tools.selTournament, tournsize=7)

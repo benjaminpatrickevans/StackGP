@@ -6,9 +6,9 @@ import numpy as np
 
 class StackGP(Base):
 
-    def __init__(self, pop_size=100, generations=5, crs_rate=0.2, mut_rate=0.8, verbose=0, random_state=0):
+    def __init__(self, pop_size=100, generations=5, crs_rate=0.2, mut_rate=0.8, max_depth=17, verbose=0, random_state=0):
         super().__init__(pop_size=pop_size, generations=generations, crs_rate=crs_rate, mut_rate=mut_rate,
-                         verbose=verbose, random_state=random_state)
+                         max_depth=max_depth, verbose=verbose, random_state=random_state)
 
     def _to_callable(self, individual):
         # Currently need to do 2 evals. TODO: Reduce this to one
@@ -16,6 +16,12 @@ class StackGP(Base):
         return eval(str(init))
 
     def _fitness_function(self, individual, x, y):
+        tree_str = str(individual)
+
+        # Avoid recomputing fitness
+        if tree_str in self.cache:
+            return self.cache[tree_str]
+
         pipeline = self._to_callable(individual)
 
         try:
@@ -28,6 +34,9 @@ class StackGP(Base):
 
             # For example if select 0 features
             fitness = 0,
+
+        # Store in cache so we don't need to reevaluate
+        self.cache[tree_str] = fitness
 
         return fitness
 
