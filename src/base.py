@@ -50,11 +50,11 @@ class Base:
     def create_toolbox(self, pset):
         toolbox = base.Toolbox()
 
-        # Fitness is f1-score. So the larger the better
-        creator.create("FitnessMax", base.Fitness, weights=(1.0, ))
+        # Maximising f1-score, minimising complexity
+        creator.create('FitnessMulti', base.Fitness, weights=(1.0, -1.0))
 
         # Individuals are represented as trees, the typical GP representation
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMax, pset=pset)
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=pset)
 
         # Between 1 node and 3 high
         toolbox.register("expr", deapfix.genHalfAndHalf, pset=pset, min_=1, max_=3)
@@ -71,7 +71,7 @@ class Base:
         toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
 
         # Selection
-        toolbox.register("select", tools.selTournament, tournsize=7)
+        toolbox.register("select", tools.selNSGA2, nd="log")
 
         # Individuals should be made based on the expr method above
         toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
@@ -87,12 +87,16 @@ class Base:
     @staticmethod
     def create_stats():
         stats = tools.Statistics(lambda ind: ind.fitness.values)
+        stats.register("min",  np.min)
+        stats.register("mean", np.mean)
         stats.register("max", np.max)
+        stats.register("std", np.std)
+
         return stats
 
     def _fill_missing(self, x):
         self.imputer = sklearn_additions.DataFrameImputer()
-        return  self.imputer.fit_transform(x)
+        return self.imputer.fit_transform(x)
 
     def _to_training_encoding(self, x):
         '''
@@ -196,16 +200,19 @@ class Base:
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
 
-        hof = tools.HallOfFame(1) # Only care for the single best found
+        pareto_front = tools.ParetoFront()
 
-        algorithms.eaSimple(pop, self.toolbox, self.crs_rate, self.mut_rate, self.generations,
-                            stats=stats, halloffame=hof)
+        algorithms.eaMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
+                                                        lambda_=self.pop_size, cxpb=self.crs_rate,
+                                                        mutpb=self.mut_rate,
+                                                        ngen=self.generations, stats=stats, halloffame=pareto_front)
+
 
         if verbose:
-            print("Best model found:", hof[0])
+            print("Best model found:", pareto_front[0])
 
-        # Use the model with the heighes fitness
-        self.model = self._to_callable(hof[0])
+        # Use the model with the heighesr fitness
+        self.model = self._to_callable(pareto_front[0])
         self.model.fit(data_x, data_y)
 
         print("Percentage of unique models: %.2f%%" % (len(self.cache) / (self.generations * self.pop_size) * 100))

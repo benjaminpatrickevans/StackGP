@@ -15,6 +15,16 @@ class StackGP(Base):
         init = self.toolbox.compile(expr=individual)
         return eval(str(init))
 
+    def _calculate_complexity(self, tree_str):
+        # Complexity measured by the number of voting nodes - TODO: one pass
+        complexity = (3. * tree_str.count("Voting3")) + (5. * tree_str.count("Voting5"))
+
+        # Max theoretical complexity would be if every internal node was a Voting5 node
+        max_complexity = 5 ** self.max_depth
+
+        return complexity / max_complexity
+
+
     def _fitness_function(self, individual, x, y):
         tree_str = str(individual)
 
@@ -27,13 +37,12 @@ class StackGP(Base):
         # Crossfold validation
         f1 = cross_val_score(model, x, y, cv=3, scoring="f1_weighted")
 
-        # Complexity measured by the number of voting nodes
-        complexity = (3 * tree_str.count("Voting3")) + (5 * tree_str.count("Voting5"))
+        complexity = self._calculate_complexity(tree_str)
 
         # Fitness is the average f1 (across folds) and the complexity
         fitness = f1.mean(), complexity
 
-        # Store in cache so we don't need to reevaluate
+        # Store fitness in cache so we don't need to reevaluate
         self.cache[tree_str] = fitness
 
         return fitness
