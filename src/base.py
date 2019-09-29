@@ -170,8 +170,6 @@ class Base:
         num_instances, num_features = data_x.shape
         num_classes = len(np.unique(data_y))
 
-        components.add_data_preprocessors(self.pset)
-        components.add_feature_preprocessors(self.pset, all_non_negative_values, num_features)
         components.add_classifiers(self.pset, num_instances, num_features, num_classes)
         components.add_combiners(self.pset)
 

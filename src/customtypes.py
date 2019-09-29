@@ -1,11 +1,6 @@
 
 # == Function node output types == #
 
-# Avoid needing to redefine all the types. These are the various strong types for each step in pipeline
-ImputerOutput = type('CompleteData', (list,), {})
-DataProcessOutput = type('ScaledData', (list,), {})
-FeatureProcessOutput = type('FinalData', (list,), {})
-
 # A pipeline is actually just a special type of list
 PipelineStump = type('PipelineStump', (list,), {})
 

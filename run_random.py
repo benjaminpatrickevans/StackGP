@@ -1,6 +1,6 @@
 from sklearn import metrics
 from sklearn.model_selection import KFold
-from src.RandomPipelines import RandomPipelines
+from src.StackGP import StackGP
 from helpers import read_data
 from scipy.stats import ttest_ind_from_stats
 import time
@@ -23,8 +23,8 @@ def comparison(train_x, train_y, test_x, test_y, max_running_time):
     # Track the time so we can allocate the comparison methods the same time
     start_time = time.time()
 
-    method = RandomPipelines(pop_size=pop_size, max_running_time=max_running_time,
-                             random_state=seed, verbose=1)
+    method = StackGP(pop_size=pop_size, max_running_time=max_running_time,
+                     random_state=seed, verbose=1)
 
     method.fit(train_x, train_y)
     training_time_seconds = time.time() - start_time

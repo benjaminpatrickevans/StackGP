@@ -7,7 +7,6 @@ from scipy import stats
 import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin
-from mlxtend.classifier import StackingCVClassifier
 from sklearn.preprocessing import LabelEncoder
 
 class DataFrameImputer(TransformerMixin):
@@ -35,17 +34,3 @@ class DataFrameImputer(TransformerMixin):
 
     def transform(self, X, y=None):
         return X.fillna(self.fill)
-
-
-class StackingCV(StackingCVClassifier):
-
-    def fit(self, X, y):
-        self.le = LabelEncoder()
-        y = self.le.fit_transform(y)
-
-        super().fit(X, y)
-
-    def predict(self, X):
-        predictions = super().predict(X)
-        return self.le.inverse_transform(predictions)
-

@@ -87,7 +87,7 @@ def generate(pset, min_, max_, condition, type_=None):
             try:
                 term = add_terminal(pset, type_)
                 expr.append(term)
-            except IndexError:
+            except IndexError as e:
                 # TODO: Can this checking be done in condition?
 
                 # We couldnt find a terminal with this type, we want to keep growing in most cases till we get
@@ -95,7 +95,7 @@ def generate(pset, min_, max_, condition, type_=None):
                 # just stop arbitrarily
 
                 # In this case we need to keep growing, so add a primitive rather than a terminal
-                if type_.__name__ in ["CompleteData", "ScaledData", "FinalData", "PipelineStump"]:
+                if type_.__name__ == "PipelineStump":
                     prim = random.choice(pset.primitives[type_])
                 elif type_.__name__ == "ClassifierMixin":
                     # If we try add a classifier terminal, instead add a new pipeline. Do not add a VotingClassifier

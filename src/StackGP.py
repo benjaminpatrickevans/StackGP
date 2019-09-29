@@ -5,7 +5,7 @@ from src.required import *  # Needed for eval to recreate individuals, do not de
 import numpy as np
 
 
-class RandomPipelines(Base):
+class StackGP(Base):
 
     def __init__(self, pop_size=10000, max_running_time=None, verbose=0, random_state=0):
         super().__init__(pop_size=pop_size, max_running_time=max_running_time, verbose=verbose,
