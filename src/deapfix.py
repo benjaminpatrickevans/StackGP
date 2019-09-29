@@ -95,12 +95,10 @@ def generate(pset, min_, max_, condition, type_=None):
                 # just stop arbitrarily
 
                 # In this case we need to keep growing, so add a primitive rather than a terminal
-                if type_.__name__ == "PipelineStump":
-                    prim = random.choice(pset.primitives[type_])
-                elif type_.__name__ == "ClassifierMixin":
-                    # If we try add a classifier terminal, instead add a new pipeline. Do not add a VotingClassifier
-                    # though or we risk getting stuck in an infinite loop
-                    prim = next((x for x in pset.primitives[type_] if x.name == "MakePipeline"), None)
+                if type_.__name__ == "ClassifierMixin":
+                    # If we try add a classifier terminal, instead add a classifier primitive.
+                    # Do not add a VotingClassifier  though or we risk getting stuck in an infinite loop
+                    prim = next((x for x in pset.primitives[type_] if "Voting" not in x.name), None)
                 else:
                     raise IndexError("No terminals found for type", type_, "please check function and terminal set")
 

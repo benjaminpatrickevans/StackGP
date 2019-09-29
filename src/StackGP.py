@@ -21,7 +21,7 @@ class StackGP(Base):
 
         try:
             # Crossfold validation for fitness
-            result = cross_val_score(pipeline, x, y, cv=10, scoring="f1_weighted")
+            result = cross_val_score(pipeline, x, y, cv=3, scoring="f1_weighted")
             fitness = result.mean(),
         except ValueError as e:
             # Help with debugging, should prevent this from ever occuring

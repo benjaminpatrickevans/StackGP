@@ -22,20 +22,14 @@ import random
 
 def add_combiners(pset):
     """
-        Combiners turn pipeline(s) into
-        a classifier. We can either have multiple
-        pipelines combined with a voter, or just
-        a single pipeline.
+        Combiners turn classifiers(s) into
+        an ensemble
 
     :param pset:
     :return:
     """
 
-    # Single pipeline. Takes a list of pipeline steps, and returns a pipeline (treated as a classifier)
-    pset.addPrimitive(lambda prev_steps: Pipeline(steps=prev_steps), [types.PipelineStump], Classifier,
-                      name="MakePipeline")
-
-    # Otherwise we want to be able to combine pipelines/classifiers into a single voting classifier
+    # Combine classifiers into a single voting classifier
     pset.addPrimitive(lambda p1, p2, p3: Voting3(p1, p2, p3), [Classifier] * 3, Classifier,
                       name="Voting3")
 
@@ -63,14 +57,6 @@ def add_classifiers(pset, num_instances, num_features, num_classes):
     _add_classifier(pset, LogisticRegression, [types.CType, types.PenaltyType])
     _add_classifier(pset, LinearSVC, [types.CType, types.PenaltyType])
 
-    # SGD Classifier
-    '''
-    _add_terminal(pset, "Loss", types.LossType, lambda: random.choice(["hinge", "log", "modified_huber", "perceptron"]))
-    _add_terminal(pset, "Alpha", types.AlphaType, lambda: random.choice([10 ** x for x in range(-6, 1)]))
-    _add_terminal(pset, "Iter", types.IterType, lambda: random.choice([5, 10, 100, 1000]))
-    _add_classifier(pset, SGDClassifier, [types.PenaltyType, types.LossType, types.AlphaType, types.IterType],
-                    input_types)
-    '''
 
     # K-nn
     max_neighbors = min(50, num_instances - 1) # Upto a max of 50 neighbors, depending on train size
@@ -99,9 +85,9 @@ def _add_terminal(pset, name, ret_type, ephemeral_constant):
 def _add_classifier(pset, classifier, param_inputs):
 
     # Custom parameters
-    pset.addPrimitive(lambda *params: classifiers.base([], classifier, *params), param_inputs,
-                      types.PipelineStump, name=classifier.__name__ + "Terminal")
+    pset.addPrimitive(lambda *params: classifiers.base(classifier, *params), param_inputs,
+                      Classifier, name=classifier.__name__ + "Terminal")
 
     # Default parameters
-    pset.addPrimitive(lambda: classifiers.base([], classifier), [], types.PipelineStump,
+    pset.addPrimitive(lambda: classifiers.base(classifier), [], Classifier,
                       name=classifier.__name__ + "TerminalDefault")

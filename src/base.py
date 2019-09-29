@@ -1,12 +1,10 @@
-from src import deapfix, customtypes, components, search, data_helper, sklearn_additions
+from src import deapfix, customtypes, components, search, sklearn_additions
 import numpy as np
 import pandas as pd
 from deap import base, creator, tools, gp
-from sklearn.utils import shuffle
 from sklearn.base import ClassifierMixin as Classifier
 import inspect
 import random
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 
 class Base:
     """

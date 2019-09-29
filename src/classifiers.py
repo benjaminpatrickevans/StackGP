@@ -17,10 +17,7 @@ def base_simple(method, *params):
     return [("clf", model)]
 
 
-def base(prev_steps, method, *params):
-
-    if prev_steps is None:
-        prev_steps = []
+def base(method, *params):
 
     param_dict = {}
 
@@ -33,4 +30,4 @@ def base(prev_steps, method, *params):
 
     model = method(**param_dict)
 
-    return prev_steps + [("clf", model)]
+    return model
