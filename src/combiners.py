@@ -74,9 +74,11 @@ class Voting3(VotingBase):
     def __init__(self, clf1, clf2, clf3):
         estimators = VotingBase.named_classifiers(clf1, clf2, clf3)
         super().__init__(estimators=estimators)
+        self.complexity = 3
 
 
 class Voting5(VotingBase):
     def __init__(self, clf1, clf2, clf3, clf4, clf5):
         estimators = VotingBase.named_classifiers(clf1, clf2, clf3, clf4, clf5)
         super().__init__(estimators=estimators)
+        self.complexity = 5

@@ -25,7 +25,6 @@ class Base:
         self.verbose = verbose
         self.random_state = random_state
 
-
         # For generating unique models
         self.cache = {}
 
@@ -208,3 +207,6 @@ class Base:
         # Use the model with the heighes fitness
         self.model = self._to_callable(hof[0])
         self.model.fit(data_x, data_y)
+
+        print("Percentage of unique models: %.2f%%" % (len(self.cache) / (self.generations * self.pop_size) * 100))
+        self.cache = {}

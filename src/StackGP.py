@@ -22,18 +22,16 @@ class StackGP(Base):
         if tree_str in self.cache:
             return self.cache[tree_str]
 
-        pipeline = self._to_callable(individual)
+        model = self._to_callable(individual)
 
-        try:
-            # Crossfold validation for fitness
-            result = cross_val_score(pipeline, x, y, cv=3, scoring="f1_weighted")
-            fitness = result.mean(),
-        except ValueError as e:
-            # Help with debugging, should prevent this from ever occuring
-            print(e)
+        # Crossfold validation
+        f1 = cross_val_score(model, x, y, cv=3, scoring="f1_weighted")
 
-            # For example if select 0 features
-            fitness = 0,
+        # Complexity measured by the number of voting nodes
+        complexity = (3 * tree_str.count("Voting3")) + (5 * tree_str.count("Voting5"))
+
+        # Fitness is the average f1 (across folds) and the complexity
+        fitness = f1.mean(), complexity
 
         # Store in cache so we don't need to reevaluate
         self.cache[tree_str] = fitness
