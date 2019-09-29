@@ -1,6 +1,5 @@
 from src.base import Base
 from sklearn.model_selection import cross_val_score
-from src import data_helper
 from src.required import *  # Needed for eval to recreate individuals, do not delete
 import numpy as np
 

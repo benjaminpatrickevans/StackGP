@@ -169,7 +169,7 @@ class Base:
         num_classes = len(np.unique(data_y))
 
         components.add_classifiers(self.pset, num_instances, num_features, num_classes)
-        components.add_combiners(self.pset)
+        components.add_voters(self.pset)
 
         # Register the fitness function, passing in our training data for evaluation
         self.toolbox.register("evaluate", self._fitness_function, x=data_x, y=data_y)

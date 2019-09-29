@@ -1,10 +1,6 @@
 
 # == Function node output types == #
 
-# A pipeline is actually just a special type of list
-PipelineStump = type('PipelineStump', (list,), {})
-
-
 # == Arg types == #
 
 def param_init(self, val):
@@ -14,9 +10,9 @@ def param_init(self, val):
 def param_str(self):
 
     if type(self.val) is str:
-        val_str = "'"+self.val+"'" # Append quotes
+        val_str = "'"+self.val+"'"  # Append quotes
     else:
-        val_str = str(self.val) # Otherwise if its a number, dont add quotes
+        val_str = str(self.val)  # Otherwise if its a number, dont add quotes
 
     return self.__class__.__name__ + "("+ val_str + ")"
 

@@ -9,7 +9,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # The custom name of our method
-pop_size = 10000
+pop_size = 10
 num_folds = 10
 data_folder = "datasets/uci/"  # Relative directory
 seed = 0
