@@ -1,10 +1,11 @@
 from src import deapfix, customtypes, components, search, sklearn_additions
 import numpy as np
 import pandas as pd
-from deap import base, creator, tools, gp
+from deap import base, creator, tools, gp, algorithms
 from sklearn.base import ClassifierMixin as Classifier
 import inspect
 import random
+import operator
 
 class Base:
     """
@@ -14,10 +15,12 @@ class Base:
         rather use a base class.
     """
 
-    def __init__(self, pop_size, max_running_time, verbose, random_state):
+    def __init__(self, pop_size, generations, crs_rate, mut_rate, verbose, random_state):
 
         self.pop_size = pop_size
-        self.max_running_time = max_running_time
+        self.generations = generations
+        self.crs_rate = crs_rate
+        self.mut_rate = mut_rate
         self.verbose = verbose
         self.random_state = random_state
 
@@ -53,6 +56,17 @@ class Base:
 
         # Between 1 node and 3 high
         toolbox.register("expr", deapfix.genHalfAndHalf, pset=pset, min_=1, max_=3)
+
+        # Crossover
+        toolbox.register("mate", gp.cxOnePoint)
+
+        # Mutation
+        toolbox.register("expr_mut", deapfix.genFull, min_=1, max_=2)
+        toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr_mut, pset=pset)
+        toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=17))
+
+        # Selection
+        toolbox.register("select", tools.selTournament, tournsize=7)
 
         # Individuals should be made based on the expr method above
         toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
@@ -179,7 +193,8 @@ class Base:
 
         hof = tools.HallOfFame(1) # Only care for the single best found
 
-        search.random_search(pop, self.toolbox, max_running_time=self.max_running_time, stats=stats, halloffame=hof)
+        algorithms.eaSimple(pop, self.toolbox, self.crs_rate, self.mut_rate, self.generations,
+                            stats=stats, halloffame=hof)
 
         if verbose:
             print("Best model found:", hof[0])
