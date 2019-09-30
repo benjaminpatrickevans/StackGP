@@ -15,10 +15,10 @@ class Base:
         rather use a base class.
     """
 
-    def __init__(self, pop_size, generations, crs_rate, mut_rate, max_depth, verbose, random_state):
+    def __init__(self, pop_size, running_time, crs_rate, mut_rate, max_depth, verbose, random_state):
 
         self.pop_size = pop_size
-        self.generations = generations
+        self.running_time = running_time
         self.crs_rate = crs_rate
         self.mut_rate = mut_rate
         self.max_depth = max_depth
@@ -167,7 +167,7 @@ class Base:
         # First thing we need to do is deal with missing values
         data_x = self._fill_missing(data_x)
 
-        # Cateogircal features are those where all the values are not numeric
+        # Categorical features are those where all the values are not numeric
         self.categorical_features = self._categorical_features(data_x)
 
         # Convert any categorical values to numeric
@@ -202,10 +202,10 @@ class Base:
 
         pareto_front = tools.ParetoFront()
 
-        algorithms.eaMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
-                                                        lambda_=self.pop_size, cxpb=self.crs_rate,
-                                                        mutpb=self.mut_rate,
-                                                        ngen=self.generations, stats=stats, halloffame=pareto_front)
+        search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
+                                   lambda_=self.pop_size, cxpb=self.crs_rate,
+                                   mutpb=self.mut_rate,
+                                   max_runtime_minutes=self.running_time, stats=stats, halloffame=pareto_front)
 
 
         if verbose:
@@ -215,5 +215,5 @@ class Base:
         self.model = self._to_callable(pareto_front[0])
         self.model.fit(data_x, data_y)
 
-        print("Percentage of unique models: %.2f%%" % (len(self.cache) / (self.generations * self.pop_size) * 100))
+        # Clear the cache to free memory now we have finished evolution
         self.cache = {}

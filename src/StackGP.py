@@ -6,8 +6,8 @@ import numpy as np
 
 class StackGP(Base):
 
-    def __init__(self, pop_size=100, generations=5, crs_rate=0.2, mut_rate=0.8, max_depth=17, verbose=0, random_state=0):
-        super().__init__(pop_size=pop_size, generations=generations, crs_rate=crs_rate, mut_rate=mut_rate,
+    def __init__(self, pop_size=100, running_time=1, crs_rate=0.2, mut_rate=0.8, max_depth=17, verbose=0, random_state=0):
+        super().__init__(pop_size=pop_size, running_time=running_time, crs_rate=crs_rate, mut_rate=mut_rate,
                          max_depth=max_depth, verbose=verbose, random_state=random_state)
 
     def _to_callable(self, individual):

@@ -21,7 +21,8 @@ def read_data(data_path, class_index="last"):
         dataX = data[:, 1:]
         dataY = data[:, 0].astype(str)  # Class label is a string
 
-    return pd.DataFrame(dataX), pd.DataFrame(dataY)
+
+    return pd.DataFrame(dataX, dtype=float), pd.DataFrame(dataY)
 
 
 def write_file(file, contents):

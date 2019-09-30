@@ -2,7 +2,6 @@ from sklearn import metrics
 from sklearn.model_selection import KFold
 from src.StackGP import StackGP
 from helpers import read_data
-from scipy.stats import ttest_ind_from_stats
 import time
 import sys
 import warnings
