@@ -7,8 +7,8 @@ from math import inf
 
 class StackGP(Base):
 
-    def __init__(self, pop_size=100, running_time=1, crs_rate=0.2, mut_rate=0.8, max_depth=17, verbose=0, random_state=0):
-        super().__init__(pop_size=pop_size, running_time=running_time, crs_rate=crs_rate, mut_rate=mut_rate,
+    def __init__(self, pop_size=1024, max_run_time_mins=1, crs_rate=0.8, mut_rate=0.2, max_depth=17, verbose=0, random_state=0):
+        super().__init__(pop_size=pop_size, max_run_time_mins=max_run_time_mins, crs_rate=crs_rate, mut_rate=mut_rate,
                          max_depth=max_depth, verbose=verbose, random_state=random_state)
 
     def _to_callable(self, individual):

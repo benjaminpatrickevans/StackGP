@@ -1,4 +1,5 @@
-from deap import tools, algorithms
+from deap import tools
+from src import deapfix
 import time
 
 def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
@@ -40,6 +41,6 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
         gen += 1
 
         # Vary the population for next generation
-        offspring = algorithms.varOr(population, toolbox, lambda_, cxpb, mutpb)
+        offspring = deapfix.varOr(population, toolbox, lambda_, cxpb, mutpb)
 
-    return population, logbook
+    return population, logbook, gen

@@ -86,9 +86,10 @@ def _add_hyperparameter(pset, name, ret_type, ephemeral_constant):
 def _add_classifier(pset, classifier, param_inputs):
 
     # Custom parameters
-    pset.addPrimitive(lambda *params: classifiers.base(classifier, *params), param_inputs,
-                      Classifier, name=classifier.__name__ + "Terminal")
+    if param_inputs:
+        pset.addPrimitive(lambda *params: classifiers.base(classifier, *params), param_inputs,
+                          Classifier, name=classifier.__name__ + "Terminal")
 
     # Default parameters
-    pset.addPrimitive(lambda: classifiers.base(classifier), [], Classifier,
-                      name=classifier.__name__ + "TerminalDefault")
+    pset.addTerminal(classifiers.base(classifier), Classifier,
+                     name=classifier.__name__ + "TerminalDefault")

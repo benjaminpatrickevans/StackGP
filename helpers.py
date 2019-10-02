@@ -62,36 +62,18 @@ def _fill_missing(x):
     return imputer.fit_transform(x)
 
 
-def read_data(data_path, class_index="last"):
+
+def read_data(data_path):
     # Load the data
-    data = pd.read_csv(data_path, header=None)
+    data = pd.read_csv(data_path)
     data = data.replace('?', np.NaN)  # We interpret question marks as missing values
-    data = data.values
 
-    # Most datasets have class as either the first or last column
-    if class_index == "last":
-        data_x = data[:, :-1]
-        data_y = data[:, -1]
-    else:
-        data_x = data[:, 1:]
-        data_y = data[:, 0]
+    x = data.drop("class", axis=1).values
+    y = 'class' + data["class"].astype(str)  # In case the class is just say "1", as h2o will try do regression
 
-    data_x = pd.DataFrame(data_x)
+    y = np.reshape(y.values, (-1, 1))  # Flatten the y so its shape (len, 1)
 
-    # First thing we need to do is deal with missing values
-    data_x = _fill_missing(data_x)
-
-    # Categorical features are those where all the values are not numeric
-    categorical_features = _categorical_features(data_x)
-
-    # Convert any categorical values to numeric
-    data_x = pd.get_dummies(data_x, columns=categorical_features)
-
-    # Convert class labels to integers
-    le = LabelEncoder()
-    data_y = le.fit_transform(data_y)
-
-    return pd.DataFrame(data_x, dtype=float), pd.DataFrame(data_y, dtype=int)
+    return pd.DataFrame(x), pd.DataFrame(y)
 
 
 def write_file(file, contents):
@@ -116,21 +98,19 @@ def run_kfold(k, dataX, dataY, fn_to_run, n_splits=10):
 
     return training_time_minutes, score
 
-def run(dataset, class_index, k, fn_to_run):
-    data_x, dataY = read_data(dataset, class_index)
+def run(dataset, k, fn_to_run):
+    data_x, data_y = read_data(dataset)
     print("Data Read")
-    return run_kfold(k, data_x, dataY, fn_to_run)
+    return run_kfold(k, data_x, data_y, fn_to_run)
 
 
-def main(fn_to_run, data_folder="datasets/uci/"):
-    if len(sys.argv) != 4:
-        print("Must run with args: str, [first, last], int")
-        print("Corresponding to: dataset_name, class_index, K")
+def main(fn_to_run, data_folder="datasets/"):
+    if len(sys.argv) != 3:
+        print("Must run with args: dataset_name (str), fold (int)")
         exit()
 
-    dataset = data_folder + sys.argv[1] + ".data"
-    class_index = sys.argv[2]
-    k = int(sys.argv[3])
+    dataset = data_folder + sys.argv[1] + ".csv"
+    k = int(sys.argv[2])
 
     print("Dataset", sys.argv[1])
-    return run(dataset, class_index, k, fn_to_run)
+    return run(dataset, k, fn_to_run)

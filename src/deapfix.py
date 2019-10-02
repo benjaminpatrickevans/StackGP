@@ -141,6 +141,75 @@ def add_terminal(pset, type_):
     return term
 
 
+def _unique_parents(population):
+    """ Return two unique individuals from
+    population if they exist, if not
+    return a random individual and None
+
+    :param population:
+    :return: (ind1, ind2) where ind2 is None if no breedable parents found
+    """
+    # Breedable trees are at least one node high
+    breedable_trees = [ind for ind in population if ind.height > 1]
+
+    # If theres no breedable trees, then there's no point trying to crossover
+    if not breedable_trees:
+        print("Only single layer high individuals! No point doing crossover")
+        return random.choice(population), None
+
+    # At this stage there must be atleast one breadable tree
+    parent_one = random.choice(breedable_trees)
+
+    # See if we can find a unique breeder. Note: we didnt check breedabe_trees size >= 2, because
+    # we could have duplicate individuals which we do not want to breed!
+    unique_breeders = [ind for ind in breedable_trees if str(ind) != str(parent_one)]
+
+    # If we cant breed, just return a random from the entire population
+    if not unique_breeders:
+        return random.choice(population), None
+
+    # If we get to this point, it means we found two unique breeders
+    return parent_one, random.choice(unique_breeders)
+
+def varOr(population, toolbox, lambda_, cxpb, mutpb):
+    """
+    This is a variation the varOr function provided by deap
+    (in algorithms.py).
+
+    The difference is this tries to select 2 unique individuals
+    when crossing over.
+    """
+    assert (cxpb + mutpb) <= 1.0, (
+        "The sum of the crossover and mutation probabilities must be smaller "
+        "or equal to 1.0.")
+
+    offspring = []
+    for _ in range(lambda_):
+        op_choice = random.random()
+        if op_choice < cxpb:            # Apply crossover
+            ind1, ind2 = map(toolbox.clone, _unique_parents(population))
+
+            # If there was a second parent, we can do crossover
+            if ind2:
+                ind1, ind2 = toolbox.mate(ind1, ind2)
+            else:
+                # Otherwise we must have matching parents or parents only one node high.
+                # So we should mutate instead to hopefully generate a new unique individual
+                ind1, = toolbox.mutate(ind1)
+
+            del ind1.fitness.values
+            offspring.append(ind1)
+        elif op_choice < cxpb + mutpb:  # Apply mutation
+            ind = toolbox.clone(random.choice(population))
+            ind, = toolbox.mutate(ind)
+            del ind.fitness.values
+            offspring.append(ind)
+        else:                           # Apply reproduction
+            offspring.append(random.choice(population))
+
+    return offspring
+
+
 def repeated_mutation(individual, expr, pset, existing, toolbox, max_tries=10):
     """
         Repeated apply mutUniform until the mutated individual has
@@ -194,6 +263,7 @@ def repeated_crossover(ind1, ind2, existing, toolbox, max_tries=10):
         # Only break once both are unique
         if unique_offspring1 and unique_offspring2:
             break
+
 
     # If we didnt find a unique, then use the last (repeated) offspring generated
     unique_offspring1 = unique_offspring1 or offspring1

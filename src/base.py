@@ -16,7 +16,7 @@ class Base:
         rather use a base class.
     """
 
-    def __init__(self, pop_size, running_time, crs_rate, mut_rate, max_depth, verbose, random_state):
+    def __init__(self, pop_size, max_run_time_mins, crs_rate, mut_rate, max_depth, verbose, random_state):
 
         self.pop_size = pop_size
         self.crs_rate = crs_rate
@@ -25,7 +25,7 @@ class Base:
         self.verbose = verbose
         self.random_state = random_state
 
-        self.end_time = time.time() + (running_time * 60)
+        self.end_time = time.time() + (max_run_time_mins * 60)
 
         # For generating unique models
         self.cache = {}
@@ -58,14 +58,14 @@ class Base:
         # Individuals are represented as trees, the typical GP representation
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=pset)
 
-        # Between 1 node and 3 high
-        toolbox.register("expr", deapfix.genHalfAndHalf, pset=pset, min_=1, max_=3)
+        # Between 1 layer and max depth high
+        toolbox.register("expr", deapfix.genHalfAndHalf, pset=pset, min_=0, max_=self.max_depth)
 
         # Crossover
         toolbox.register("mate", deapfix.repeated_crossover, existing=self.cache, toolbox=toolbox)
 
         # Mutation
-        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=2)
+        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=self.max_depth)
         toolbox.register("mutate", deapfix.repeated_mutation, expr=toolbox.expr_mut, pset=pset, existing=self.cache,
                          toolbox=toolbox)
 
@@ -207,7 +207,7 @@ class Base:
 
         pareto_front = tools.ParetoFront()
 
-        search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
+        pop, logbook, generations = search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
                                    lambda_=self.pop_size, cxpb=self.crs_rate,
                                    mutpb=self.mut_rate,
                                    end_time=self.end_time, stats=stats, halloffame=pareto_front)
@@ -218,6 +218,9 @@ class Base:
         # Use the model with the heighesr fitness
         self.model = self._to_callable(pareto_front[0])
         self.model.fit(data_x, data_y)
+
+
+        print("Percentage of unique models", (len(self.cache) / (generations * self.pop_size))* 100)
 
         # Clear the cache to free memory now we have finished evolution
         self.cache = {}
