@@ -6,6 +6,7 @@ from sklearn.base import ClassifierMixin as Classifier
 import inspect
 import random
 import operator
+import time
 
 class Base:
     """
@@ -18,12 +19,13 @@ class Base:
     def __init__(self, pop_size, running_time, crs_rate, mut_rate, max_depth, verbose, random_state):
 
         self.pop_size = pop_size
-        self.running_time = running_time
         self.crs_rate = crs_rate
         self.mut_rate = mut_rate
         self.max_depth = max_depth
         self.verbose = verbose
         self.random_state = random_state
+
+        self.end_time = time.time() + (running_time * 60)
 
         # For generating unique models
         self.cache = {}
@@ -86,7 +88,7 @@ class Base:
 
     @staticmethod
     def create_stats():
-        stats = tools.Statistics(lambda ind: ind.fitness.values)
+        stats = tools.Statistics(lambda ind: ind.fitness.values[0])
         stats.register("min",  np.min)
         stats.register("mean", np.mean)
         stats.register("max", np.max)
@@ -164,6 +166,8 @@ class Base:
         random.seed(self.random_state)
         np.random.seed(self.random_state)
 
+        '''
+
         # First thing we need to do is deal with missing values
         data_x = self._fill_missing(data_x)
 
@@ -187,7 +191,8 @@ class Base:
         # Some methods (i.e. chi-2 are only relevant when features are all positive.
         # Note: this will break if the testing set has negative values and the training doesnt
         all_non_negative_values = np.all(data_x >= 0)
-
+        
+        '''
         num_instances, num_features = data_x.shape
         num_classes = len(np.unique(data_y))
 
@@ -205,8 +210,7 @@ class Base:
         search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
                                    lambda_=self.pop_size, cxpb=self.crs_rate,
                                    mutpb=self.mut_rate,
-                                   max_runtime_minutes=self.running_time, stats=stats, halloffame=pareto_front)
-
+                                   end_time=self.end_time, stats=stats, halloffame=pareto_front)
 
         if verbose:
             print("Best model found:", pareto_front[0])

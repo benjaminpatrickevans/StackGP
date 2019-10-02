@@ -6,6 +6,7 @@ from src import sklearn_additions
 from sklearn.model_selection import KFold
 import time
 import sys
+from sklearn.preprocessing import LabelEncoder
 
 num_folds = 10
 
@@ -76,7 +77,6 @@ def read_data(data_path, class_index="last"):
         data_y = data[:, 0]
 
     data_x = pd.DataFrame(data_x)
-    data_y = pd.DataFrame(data_y, dtype=str)
 
     # First thing we need to do is deal with missing values
     data_x = _fill_missing(data_x)
@@ -87,7 +87,11 @@ def read_data(data_path, class_index="last"):
     # Convert any categorical values to numeric
     data_x = pd.get_dummies(data_x, columns=categorical_features)
 
-    return pd.DataFrame(data_x, dtype=float), data_y
+    # Convert class labels to integers
+    le = LabelEncoder()
+    data_y = le.fit_transform(data_y)
+
+    return pd.DataFrame(data_x, dtype=float), pd.DataFrame(data_y, dtype=int)
 
 
 def write_file(file, contents):
@@ -110,7 +114,7 @@ def run_kfold(k, dataX, dataY, fn_to_run, n_splits=10):
 
     model, training_time_minutes, score = fn_to_run(train_x, train_y, test_x, test_y)
 
-    return score
+    return training_time_minutes, score
 
 def run(dataset, class_index, k, fn_to_run):
     data_x, dataY = read_data(dataset, class_index)

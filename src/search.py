@@ -1,9 +1,7 @@
 from deap import tools, algorithms
 import time
 
-
-
-def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, max_runtime_minutes,
+def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
                         stats=None, halloffame=None, verbose=__debug__):
     """
         This is the :math:`(\mu + \lambda)` evolutionary algorithm.
@@ -12,34 +10,17 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, max_runti
         than ngen.
     """
 
-    end_time = time.time() + 60 * max_runtime_minutes
-
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
-    # Evaluate the individuals with an invalid fitness
-    invalid_ind = [ind for ind in population if not ind.fitness.valid]
-    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-    for ind, fit in zip(invalid_ind, fitnesses):
-        ind.fitness.values = fit
-
-    if halloffame is not None:
-        halloffame.update(population)
-
-    record = stats.compile(population) if stats is not None else {}
-    logbook.record(gen=0, nevals=len(invalid_ind), **record)
-    if verbose:
-        print(logbook.stream)
-
-    gen = 1
+    offspring = population
+    gen = 0
 
     while time.time() < end_time:
-        # Vary the population
-        offspring = algorithms.varOr(population, toolbox, lambda_, cxpb, mutpb)
-
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
@@ -57,5 +38,8 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, max_runti
             print(logbook.stream)
 
         gen += 1
+
+        # Vary the population for next generation
+        offspring = algorithms.varOr(population, toolbox, lambda_, cxpb, mutpb)
 
     return population, logbook

@@ -1,7 +1,8 @@
 from src.base import Base
 from sklearn.model_selection import cross_val_score
 from src.required import *  # Needed for eval to recreate individuals, do not delete
-import numpy as np
+import time
+from math import inf
 
 
 class StackGP(Base):
@@ -24,8 +25,11 @@ class StackGP(Base):
 
         return complexity / max_complexity
 
-
     def _fitness_function(self, individual, x, y):
+        # Dont evaluate, we need to stop
+        if time.time() > self.end_time:
+            return -inf, inf
+
         tree_str = str(individual)
 
         # Avoid recomputing fitness
@@ -51,6 +55,7 @@ class StackGP(Base):
         if self.model is None:
             raise Exception("Must call fit before predict")
 
+        '''
         x = self.imputer.transform(x)
 
         if self.categorical_features:
@@ -58,5 +63,5 @@ class StackGP(Base):
 
         # Could be object type
         x = np.array(x, dtype=float)
-
+        '''
         return self.model.predict(x)
