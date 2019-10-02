@@ -1,7 +1,7 @@
 from src import deapfix, customtypes, components, search, sklearn_additions
 import numpy as np
 import pandas as pd
-from deap import base, creator, tools, gp, algorithms
+from deap import base, creator, tools, gp
 from sklearn.base import ClassifierMixin as Classifier
 import inspect
 import random
@@ -16,12 +16,13 @@ class Base:
         rather use a base class.
     """
 
-    def __init__(self, pop_size, max_run_time_mins, crs_rate, mut_rate, max_depth, verbose, random_state):
+    def __init__(self, pop_size, max_run_time_mins, crs_rate, mut_rate, max_depth, n_jobs, verbose, random_state):
 
         self.pop_size = pop_size
         self.crs_rate = crs_rate
         self.mut_rate = mut_rate
         self.max_depth = max_depth
+        self.n_jobs = n_jobs
         self.verbose = verbose
         self.random_state = random_state
 

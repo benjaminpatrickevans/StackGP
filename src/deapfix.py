@@ -89,8 +89,6 @@ def generate(pset, min_, max_, condition, type_=None):
                 term = add_terminal(pset, type_)
                 expr.append(term)
             except IndexError as e:
-                # TODO: Can this checking be done in condition?
-
                 # We couldnt find a terminal with this type, we want to keep growing in most cases till we get
                 # a terminal node. This is one of the inconsistencies with strongly typed GP, we can not
                 # just stop arbitrarily
@@ -154,7 +152,6 @@ def _unique_parents(population):
 
     # If theres no breedable trees, then there's no point trying to crossover
     if not breedable_trees:
-        print("Only single layer high individuals! No point doing crossover")
         return random.choice(population), None
 
     # At this stage there must be atleast one breadable tree
@@ -170,6 +167,7 @@ def _unique_parents(population):
 
     # If we get to this point, it means we found two unique breeders
     return parent_one, random.choice(unique_breeders)
+
 
 def varOr(population, toolbox, lambda_, cxpb, mutpb):
     """

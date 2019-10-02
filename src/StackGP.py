@@ -7,9 +7,10 @@ from math import inf
 
 class StackGP(Base):
 
-    def __init__(self, pop_size=1024, max_run_time_mins=1, crs_rate=0.8, mut_rate=0.2, max_depth=17, verbose=0, random_state=0):
+    def __init__(self, pop_size=1024, max_run_time_mins=60, crs_rate=0.8, mut_rate=0.2, max_depth=17, n_jobs=1,
+                 verbose=0, random_state=0):
         super().__init__(pop_size=pop_size, max_run_time_mins=max_run_time_mins, crs_rate=crs_rate, mut_rate=mut_rate,
-                         max_depth=max_depth, verbose=verbose, random_state=random_state)
+                         max_depth=max_depth, n_jobs=n_jobs, verbose=verbose, random_state=random_state)
 
     def _to_callable(self, individual):
         # Currently need to do 2 evals. TODO: Reduce this to one
@@ -39,7 +40,7 @@ class StackGP(Base):
         model = self._to_callable(individual)
 
         # Crossfold validation
-        f1 = cross_val_score(model, x, y, cv=3, scoring="f1_weighted")
+        f1 = cross_val_score(model, x, y, cv=3, scoring="f1_weighted", n_jobs=self.n_jobs)
 
         complexity = self._calculate_complexity(tree_str)
 

@@ -6,17 +6,24 @@ from src import sklearn_additions
 from sklearn.model_selection import KFold
 import time
 import sys
-from sklearn.preprocessing import LabelEncoder
+import multiprocessing
 
 num_folds = 10
+num_cores = multiprocessing.cpu_count() // 2
+time_limit_minutes = 1
 
 def evaluation_score(real_y, predicted_y):
     return metrics.f1_score(real_y, predicted_y, average="weighted")
 
 
-def run_and_time_classifier(model, train_x, train_y, test_x, test_y):
+def run_and_time_classifier(model, train_x, train_y, test_x, test_y, callback=None):
     start_time = time.time()
-    model.fit(train_x, train_y)
+
+    if callback:
+        model.fit(train_x, train_y, callback=callback)
+    else:
+        model.fit(train_x, train_y)
+
     training_time_seconds = time.time() - start_time
     training_time_minutes = int(training_time_seconds / 60)
 
