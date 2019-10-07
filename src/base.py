@@ -1,4 +1,4 @@
-from src import deapfix, customtypes, classifiers, search
+from src import deapfix, search
 import numpy as np
 from deap import base, creator, tools, gp
 from sklearn.base import ClassifierMixin as Classifier
@@ -8,7 +8,6 @@ import operator
 import time
 from math import inf
 from sklearn.model_selection import cross_val_score
-from src.required import *  # Needed for eval to recreate individuals, do not delete
 
 
 class Base:
@@ -45,11 +44,6 @@ class Base:
     def create_pset():
         # Takes in no parameters, and returns a classifier
         pset = gp.PrimitiveSetTyped("MAIN", [], Classifier)
-
-        # We need to add all our custom defined types so they can be recreated
-        for name, defined_type in inspect.getmembers(customtypes):
-            if type(defined_type) == type:
-                pset.context[name] = defined_type
 
         return pset
 
@@ -134,10 +128,7 @@ class Base:
         # Clear the cache to free memory now we have finished evolution
         self.cache = {}
 
-    def _to_callable(self, individual):
-        # Currently need to do 2 evals. TODO: Reduce this to one
-        init = self.toolbox.compile(expr=individual)
-        return eval(str(init))
+
 
     def _calculate_complexity(self, tree_str):
         # Complexity measured by the number of voting nodes - TODO: one pass

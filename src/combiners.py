@@ -1,5 +1,4 @@
 from sklearn.ensemble import VotingClassifier, VotingRegressor
-from sklearn.ensemble.voting import _BaseVoting
 from sklearn import base
 import numpy as np
 from sklearn.externals import six

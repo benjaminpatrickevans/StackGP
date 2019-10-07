@@ -12,13 +12,51 @@
     easy expansion in the future (see customtypes.py)
 """
 import src.customtypes as types
-from src.required import *
+from src.required_classifiers import *
 from sklearn.base import ClassifierMixin as Classifier
 from src.combiners import Voting3Classifier, Voting5Classifier
 import numpy as np
 import random
 from sklearn.svm import LinearSVC
 
+classifier_map = {
+        # Naive Bayes
+        GaussianNB: {},
+
+        # Decision Trees
+        DecisionTreeClassifier: {},
+
+        # Logistic Regression and Linear SVC
+        LogisticRegression:  {
+            "C": np.logspace(-3, 2, 6),
+            "penalty": ["l1", "l2"]
+        },
+
+        LinearSVC:  {
+            "C": np.logspace(-3, 2, 6),
+            "penalty": ["l1", "l2"],
+            "dual": [False]
+        },
+
+        KNeighborsClassifier: {
+            "n_neighbors": range(1, 50)
+        },
+
+        RandomForestClassifier: {
+            "n_estimators": range(10, 150)
+        },
+
+        AdaBoostClassifier: {
+            "n_estimators": range(10, 150)
+        },
+
+        XGBClassifier: {
+            "n_estimators": range(10, 150),
+            "booster": ["gbtree", "gblinear", "dart"],
+            "max_depth": range(2, 8),
+            "learning_rate":  [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.5]
+            }
+}
 
 def _create_estimator(method, *params):
 
@@ -62,41 +100,40 @@ def add_estimators(pset, num_instances):
     :return:
     """
 
-    # Naive Bayes
-    _add_estimator(pset, GaussianNB, [])
+    # For sharing parameter types
+    all_parameter_types = {}
 
-    # Decision Trees
-    _add_estimator(pset, DecisionTreeClassifier, [])
+    for classifier in classifier_map:
+        classifier_params = classifier_map[classifier]
 
-    # Logistic Regression and Linear SVC
-    _add_hyperparameter(pset, "C", types.CType, lambda: random.choice(np.logspace(-3, 2, 6)))
-    _add_hyperparameter(pset, "Penalty", types.PenaltyType, lambda: random.choice(["l1", "l2"]))
-    _add_estimator(pset, LogisticRegression, [types.CType, types.PenaltyType])
-    _add_estimator(pset, LinearSVC, [types.CType, types.PenaltyType])
+        inputs = []
+        for param in classifier_params:
+            param_name = str(param)
 
+            if param_name in all_parameter_types:
+                # Already made this type, reuse it. This is so we can cross types over
+                param_type = all_parameter_types[param_name]
+            else:
+                # Must add the type
+                value_range = classifier_params[param]
 
-    # K-nn
-    max_neighbors = min(50, num_instances - 1) # Upto a max of 50 neighbors, depending on train size
-    _add_hyperparameter(pset, "K", types.KType, lambda: random.randrange(1, max_neighbors))
-    _add_estimator(pset, KNeighborsClassifier, [types.KType])
+                param_type = type(param, (), {'name': param, '__init__': types.param_init, '__str__': types.param_str,
+                                    '__repr__': types.param_str})
 
-    # Random Forests
-    _add_hyperparameter(pset, "N", types.NumEstimatorsType, lambda: random.randrange(10, 150))
-    _add_estimator(pset, RandomForestClassifier, [types.NumEstimatorsType])
+                _add_hyperparameter(pset, param_name, param_type, value_range)
 
-    # Adaboost
-    _add_estimator(pset, AdaBoostClassifier, [types.NumEstimatorsType])
+                # For recreating the types
+                pset.context[param] = param_type
 
-    # XGBoost
-    _add_hyperparameter(pset, "Booster", types.BoosterType, lambda: random.choice(["gbtree", "gblinear", "dart"]))
-    _add_hyperparameter(pset, "Depth", types.DepthType, lambda: random.randint(2, 8))
-    _add_hyperparameter(pset, "LR", types.LRType, lambda: random.choice([0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.5]))
+                all_parameter_types[param_name] = param_type
 
-    _add_estimator(pset, XGBClassifier, [types.BoosterType, types.DepthType, types.NumEstimatorsType, types.LRType])
+            inputs.append(param_type)
 
+        _add_estimator(pset, classifier, inputs)
 
-def _add_hyperparameter(pset, name, ret_type, ephemeral_constant):
-    pset.addEphemeralConstant(name, lambda: ret_type(ephemeral_constant()), ret_type)
+def _add_hyperparameter(pset, name, ret_type, value_range):
+    pset.addEphemeralConstant(name, lambda: ret_type(random.choice(value_range)), ret_type)
+
 
 def _add_estimator(pset, classifier, param_inputs):
 
