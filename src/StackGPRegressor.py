@@ -1,6 +1,5 @@
 from src.base import Base
-
-
+from src import regressors
 
 class StackGPRegressor(Base):
 
@@ -8,3 +7,9 @@ class StackGPRegressor(Base):
                  verbose=0, random_state=0):
         super().__init__(pop_size=pop_size, max_run_time_mins=max_run_time_mins, crs_rate=crs_rate, mut_rate=mut_rate,
                          max_depth=max_depth, n_jobs=n_jobs, verbose=verbose, random_state=random_state)
+
+    def _add_estimators(self, pset, num_instances):
+        pass
+
+    def _add_voters(self, pset):
+        pass

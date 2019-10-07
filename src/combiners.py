@@ -1,4 +1,5 @@
-from sklearn.ensemble import VotingClassifier
+from sklearn.ensemble import VotingClassifier, VotingRegressor
+from sklearn.ensemble.voting import _BaseVoting
 from sklearn import base
 import numpy as np
 from sklearn.externals import six
@@ -48,12 +49,15 @@ base._pprint = _pprint
 
 '''
 Scikit learn doesnt allow varags as inputs, 
-so we need to define the tree cases of our voting classifier.
-(3, 5 and 7 inputs). 
+so we need to define the two cases of our voting classifier.
+(3, and 5 inputs). 
 '''
 
+def named_estimators(*classifiers):
+    return [("Est" + str(idx), clf) for idx, clf in enumerate(classifiers)]
 
-class VotingBase(VotingClassifier):
+
+class VotingBaseClassifier(VotingClassifier):
 
     def __init__(self, estimators):
         super().__init__(estimators=estimators)
@@ -64,19 +68,37 @@ class VotingBase(VotingClassifier):
 
     __str__ = __repr__
 
+class VotingBaseRegressor(VotingRegressor):
 
-    @staticmethod
-    def named_classifiers(*classifiers):
-        return [("Clf" + str(idx), clf) for idx, clf in enumerate(classifiers)]
+    def __init__(self, estimators):
+        super().__init__(estimators=estimators)
+
+    def __repr__(self):
+        # When recreating, we can just make a VotingClassifier now
+        return "VotingRegressor(estimators=" + repr(self.estimators) + ")"
+
+    __str__ = __repr__
 
 
-class Voting3(VotingBase):
+class Voting3Classifier(VotingBaseClassifier):
     def __init__(self, clf1, clf2, clf3):
-        estimators = VotingBase.named_classifiers(clf1, clf2, clf3)
+        estimators = named_estimators(clf1, clf2, clf3)
         super().__init__(estimators=estimators)
 
 
-class Voting5(VotingBase):
+class Voting5Classifier(VotingBaseClassifier):
     def __init__(self, clf1, clf2, clf3, clf4, clf5):
-        estimators = VotingBase.named_classifiers(clf1, clf2, clf3, clf4, clf5)
+        estimators = named_estimators(clf1, clf2, clf3, clf4, clf5)
+        super().__init__(estimators=estimators)
+
+
+class Voting3Regressor(VotingBaseRegressor):
+    def __init__(self, clf1, clf2, clf3):
+        estimators =named_estimators(clf1, clf2, clf3)
+        super().__init__(estimators=estimators)
+
+
+class Voting5Regressor(VotingBaseRegressor):
+    def __init__(self, clf1, clf2, clf3, clf4, clf5):
+        estimators = named_estimators(clf1, clf2, clf3, clf4, clf5)
         super().__init__(estimators=estimators)

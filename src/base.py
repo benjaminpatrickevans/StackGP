@@ -1,6 +1,5 @@
-from src import deapfix, customtypes, components, search, sklearn_additions
+from src import deapfix, customtypes, classifiers, search
 import numpy as np
-import pandas as pd
 from deap import base, creator, tools, gp
 from sklearn.base import ClassifierMixin as Classifier
 import inspect
@@ -108,8 +107,8 @@ class Base:
 
         num_instances, num_features = data_x.shape
 
-        components.add_classifiers(self.pset, num_instances)
-        components.add_voters(self.pset)
+        self._add_estimators(self.pset, num_instances)
+        self._add_voters(self.pset)
 
         # Register the fitness function, passing in our training data for evaluation
         self.toolbox.register("evaluate", self._fitness_function, x=data_x, y=data_y)
