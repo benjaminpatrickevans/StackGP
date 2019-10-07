@@ -37,7 +37,7 @@ def add_voters(pset):
                       name="Voting5")
 
 
-def add_classifiers(pset, num_instances, num_features, num_classes):
+def add_classifiers(pset, num_instances):
     """
     Adds the various classification algorithms that can be used as
     the final stage of pipeline
@@ -91,5 +91,4 @@ def _add_classifier(pset, classifier, param_inputs):
                           Classifier, name=classifier.__name__ + "Terminal")
 
     # Default parameters
-    pset.addTerminal(classifiers.base(classifier), Classifier,
-                     name=classifier.__name__ + "TerminalDefault")
+    pset.addTerminal(classifiers.base(classifier), Classifier, name=classifier.__name__ + "TerminalDefault")

@@ -7,6 +7,10 @@ import inspect
 import random
 import operator
 import time
+from math import inf
+from sklearn.model_selection import cross_val_score
+from src.required import *  # Needed for eval to recreate individuals, do not delete
+
 
 class Base:
     """
@@ -97,107 +101,14 @@ class Base:
 
         return stats
 
-    def _fill_missing(self, x):
-        self.imputer = sklearn_additions.DataFrameImputer()
-        return self.imputer.fit_transform(x)
-
-    def _to_training_encoding(self, x):
-        '''
-            http://fastml.com/how-to-use-pd-dot-get-dummies-with-the-test-set/
-        :param x:
-        :return:
-        '''
-
-        categorical_features = self._categorical_features(x)
-
-        x = pd.get_dummies(x, columns=categorical_features)
-
-        # In case we didnt see some of the examples in the test set
-        missing_cols = set(self.training_columns) - set(x.columns)
-        for c in missing_cols:
-            x[c] = 0
-
-        # Make sure we have all the columns we need
-        assert (set(self.training_columns) - set(x.columns) == set())
-
-        extra_cols = set(x.columns) - set(self.training_columns)
-
-        if extra_cols:
-            print("Extra columns in the unseen test data:", extra_cols)
-            print("Ignoring them.")
-
-        # Reorder to ensure we have the same columns and ordering as training data
-        x = x[self.training_columns]
-
-        return x
-
-    def is_number(self, x):
-        try:
-            float(x)
-            return True
-        except ValueError:
-            return False
-
-    def _categorical_features(self, data_x):
-        '''
-            Returns the categorical column names
-            from data_x. Returns an empty set
-            if they are all numeric.
-        :param data_x:
-        :return:
-        '''
-
-        categorical_features = []
-
-        for col in data_x:
-            values = np.unique(data_x[col].values)
-
-            # If they are all numeric
-            numeric = np.all([self.is_number(x) for x in values])
-
-            if not numeric:
-                categorical_features.append(col)
-
-        return categorical_features
-
-
     def fit(self, data_x, data_y, verbose=1):
-
         # Set evolutionary seed since GP is stochastic (reproducability)
         random.seed(self.random_state)
         np.random.seed(self.random_state)
 
-        '''
-
-        # First thing we need to do is deal with missing values
-        data_x = self._fill_missing(data_x)
-
-        # Categorical features are those where all the values are not numeric
-        self.categorical_features = self._categorical_features(data_x)
-
-        # Convert any categorical values to numeric
-        data_x = pd.get_dummies(data_x, columns=self.categorical_features)
-        self.training_columns = data_x.columns # For recreating at test time
-
-        if self.categorical_features:
-            print("Applied one hot encoding", len(self.training_columns))
-            self.one_hot_encoding = True
-
-        # Now we can just treat as floats since no categories left
-        data_x = np.array(data_x, dtype=float)
-
-        # Also we want to be safe and ensure y values are numpy
-        data_y = np.asarray(data_y, dtype=str).flatten()
-
-        # Some methods (i.e. chi-2 are only relevant when features are all positive.
-        # Note: this will break if the testing set has negative values and the training doesnt
-        all_non_negative_values = np.all(data_x >= 0)
-        
-        '''
         num_instances, num_features = data_x.shape
-        num_classes = len(np.unique(data_y))
 
-        components.add_classifiers(self.pset, num_instances, num_features, num_classes)
+        components.add_classifiers(self.pset, num_instances)
         components.add_voters(self.pset)
 
         # Register the fitness function, passing in our training data for evaluation
@@ -215,13 +126,57 @@ class Base:
 
         if verbose:
             print("Best model found:", pareto_front[0])
+            print("Percentage of unique models", (len(self.cache) / (generations * self.pop_size)) * 100)
 
-        # Use the model with the heighesr fitness
+        # Use the model with the heighest fitness
         self.model = self._to_callable(pareto_front[0])
         self.model.fit(data_x, data_y)
 
-
-        print("Percentage of unique models", (len(self.cache) / (generations * self.pop_size))* 100)
-
         # Clear the cache to free memory now we have finished evolution
         self.cache = {}
+
+    def _to_callable(self, individual):
+        # Currently need to do 2 evals. TODO: Reduce this to one
+        init = self.toolbox.compile(expr=individual)
+        return eval(str(init))
+
+    def _calculate_complexity(self, tree_str):
+        # Complexity measured by the number of voting nodes - TODO: one pass
+        complexity = (3. * tree_str.count("Voting3")) + (5. * tree_str.count("Voting5"))
+
+        # Max theoretical complexity would be if every internal node was a Voting5 node
+        max_complexity = 5 ** self.max_depth
+
+        return complexity / max_complexity
+
+    def predict(self, x):
+        if self.model is None:
+            raise Exception("Must call fit before predict")
+
+        return self.model.predict(x)
+
+    def _fitness_function(self, individual, x, y):
+        # Dont evaluate, we need to stop
+        if time.time() > self.end_time:
+            return -inf, inf
+
+        tree_str = str(individual)
+
+        # Avoid recomputing fitness
+        if tree_str in self.cache:
+            return self.cache[tree_str]
+
+        model = self._to_callable(individual)
+
+        # Crossfold validation
+        f1 = cross_val_score(model, x, y, cv=3, scoring="f1_weighted", n_jobs=self.n_jobs)
+
+        complexity = self._calculate_complexity(tree_str)
+
+        # Fitness is the average f1 (across folds) and the complexity
+        fitness = f1.mean(), complexity
+
+        # Store fitness in cache so we don't need to reevaluate
+        self.cache[tree_str] = fitness
+
+        return fitness
