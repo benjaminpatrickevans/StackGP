@@ -2,7 +2,6 @@ from src import deapfix, search
 import numpy as np
 from deap import base, creator, tools, gp
 from sklearn.base import ClassifierMixin as Classifier
-import inspect
 import random
 import operator
 import time
@@ -99,12 +98,10 @@ class Base:
         random.seed(self.random_state)
         np.random.seed(self.random_state)
 
-        num_instances, num_features = data_x.shape
-
-        self._add_estimators(self.pset, num_instances)
+        self._add_estimators(self.pset)
         self._add_voters(self.pset)
 
-        # Register the fitness function, passing in our training data for evaluation
+        # Register the fitness function, pass1ing in our training data for evaluation
         self.toolbox.register("evaluate", self._fitness_function, x=data_x, y=data_y)
 
         pop = self.toolbox.population(n=self.pop_size)
@@ -151,6 +148,8 @@ class Base:
             return -inf, inf
 
         tree_str = str(individual)
+
+        print(tree_str)
 
         # Avoid recomputing fitness
         if tree_str in self.cache:

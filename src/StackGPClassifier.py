@@ -1,6 +1,5 @@
 from src.base import Base
-from src import classifiers
-from src.required_classifiers import *  # Needed for eval to recreate individuals, do not delete
+from src import classifiers, components
 
 class StackGPClassifier(Base):
 
@@ -9,8 +8,8 @@ class StackGPClassifier(Base):
         super().__init__(pop_size=pop_size, max_run_time_mins=max_run_time_mins, crs_rate=crs_rate, mut_rate=mut_rate,
                          max_depth=max_depth, n_jobs=n_jobs, verbose=verbose, random_state=random_state)
 
-    def _add_estimators(self, pset, num_instances):
-        classifiers.add_estimators(pset, num_instances)
+    def _add_estimators(self, pset):
+        components.add_estimators(pset, classifiers.classifier_map, classifiers.Classifier)
 
     def _add_voters(self, pset):
         classifiers.add_voters(pset)
@@ -18,4 +17,4 @@ class StackGPClassifier(Base):
     def _to_callable(self, individual):
         # Currently need to do 2 evals. TODO: Reduce this to one
         init = self.toolbox.compile(expr=individual)
-        return eval(str(init))
+        return eval(str(init), globals(), self.pset.context)
