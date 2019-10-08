@@ -94,7 +94,7 @@ def generate(pset, min_, max_, condition, type_=None):
                 # just stop arbitrarily
 
                 # In this case we need to keep growing, so add a primitive rather than a terminal
-                if type_.__name__ == "ClassifierMixin":
+                if type_.__name__ in ["ClassifierMixin", "RegressorMixin"]:
                     # If we try add a classifier terminal, instead add a classifier primitive.
                     # Do not add a VotingClassifier  though or we risk getting stuck in an infinite loop
                     prim = next((x for x in pset.primitives[type_] if "Voting" not in x.name), None)

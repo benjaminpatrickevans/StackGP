@@ -1,13 +1,11 @@
 from src import deapfix, search
 import numpy as np
 from deap import base, creator, tools, gp
-from sklearn.base import ClassifierMixin as Classifier
 import random
 import operator
 import time
 from math import inf
 from sklearn.model_selection import cross_val_score
-
 
 class Base:
     """
@@ -32,38 +30,40 @@ class Base:
         # For generating unique models
         self.cache = {}
 
-        self.pset = Base.create_pset()
-        self.toolbox = self.create_toolbox(self.pset)
+        self.pset = self.create_pset()
+        self.toolbox = self.create_toolbox()
 
         self.model = None
         self.imputer = None
         self.one_hot_encoding = None
 
-    @staticmethod
-    def create_pset():
-        # Takes in no parameters, and returns a classifier
-        pset = gp.PrimitiveSetTyped("MAIN", [], Classifier)
+    def create_pset(self):
+        # Takes in no parameters, and returns a estimator
+        pset = gp.PrimitiveSetTyped("MAIN", [], self.est_type)
+
+        # So we can recreate np arrays
+        pset.context["array"] = np.array
 
         return pset
 
-    def create_toolbox(self, pset):
+    def create_toolbox(self):
         toolbox = base.Toolbox()
 
         # Maximising f1-score, minimising complexity
         creator.create('FitnessMulti', base.Fitness, weights=(1.0, -1.0))
 
         # Individuals are represented as trees, the typical GP representation
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=pset)
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset)
 
         # Between 1 layer and max depth high
-        toolbox.register("expr", deapfix.genHalfAndHalf, pset=pset, min_=0, max_=self.max_depth)
+        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=self.max_depth)
 
         # Crossover
         toolbox.register("mate", deapfix.repeated_crossover, existing=self.cache, toolbox=toolbox)
 
         # Mutation
         toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=self.max_depth)
-        toolbox.register("mutate", deapfix.repeated_mutation, expr=toolbox.expr_mut, pset=pset, existing=self.cache,
+        toolbox.register("mutate", deapfix.repeated_mutation, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
                          toolbox=toolbox)
 
         toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
@@ -79,19 +79,23 @@ class Base:
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
         # Use the standard deap method of compiling an individual
-        toolbox.register("compile", gp.compile, pset=pset)
+        toolbox.register("compile", gp.compile, pset=self.pset)
 
         return toolbox
 
     @staticmethod
     def create_stats():
-        stats = tools.Statistics(lambda ind: ind.fitness.values[0])
-        stats.register("min",  np.min)
-        stats.register("mean", np.mean)
-        stats.register("max", np.max)
-        stats.register("std", np.std)
+        stats_fit = tools.Statistics(key=lambda ind: ind.fitness.values[0])
+        stats_size = tools.Statistics(key=lambda ind: ind.fitness.values[1])
 
-        return stats
+        mstats = tools.MultiStatistics(fitness=stats_fit, complexity=stats_size)
+
+        mstats.register("min",  np.min)
+        mstats.register("mean", np.mean)
+        mstats.register("max", np.max)
+        mstats.register("std", np.std)
+
+        return mstats
 
     def fit(self, data_x, data_y, verbose=1):
         # Set evolutionary seed since GP is stochastic (reproducability)
@@ -100,6 +104,9 @@ class Base:
 
         self._add_estimators(self.pset)
         self._add_voters(self.pset)
+
+        # Make it 1D
+        data_y = data_y.values.reshape(-1,)
 
         # Register the fitness function, pass1ing in our training data for evaluation
         self.toolbox.register("evaluate", self._fitness_function, x=data_x, y=data_y)
@@ -122,10 +129,14 @@ class Base:
         self.model = self._to_callable(pareto_front[0])
         self.model.fit(data_x, data_y)
 
+
+        self._print_pareto(pareto_front)
+
         # Clear the cache to free memory now we have finished evolution
         self.cache = {}
 
-
+    def _print_pareto(self, pareto_front):
+            print([solution.fitness.values for solution in pareto_front])
 
     def _calculate_complexity(self, tree_str):
         # Complexity measured by the number of voting nodes - TODO: one pass
@@ -134,7 +145,7 @@ class Base:
         # Max theoretical complexity would be if every internal node was a Voting5 node
         max_complexity = 5 ** self.max_depth
 
-        return complexity / max_complexity
+        return complexity #/ max_complexity
 
     def predict(self, x):
         if self.model is None:
@@ -149,8 +160,6 @@ class Base:
 
         tree_str = str(individual)
 
-        print(tree_str)
-
         # Avoid recomputing fitness
         if tree_str in self.cache:
             return self.cache[tree_str]
@@ -158,14 +167,19 @@ class Base:
         model = self._to_callable(individual)
 
         # Crossfold validation
-        f1 = cross_val_score(model, x, y, cv=3, scoring="f1_weighted", n_jobs=self.n_jobs)
+        score = cross_val_score(model, x, y, cv=3, scoring=self.scorer, n_jobs=self.n_jobs)
 
         complexity = self._calculate_complexity(tree_str)
 
-        # Fitness is the average f1 (across folds) and the complexity
-        fitness = f1.mean(), complexity
+        # Fitness is the average score (across folds) and the complexity
+        fitness = score.mean(), complexity
 
         # Store fitness in cache so we don't need to reevaluate
         self.cache[tree_str] = fitness
 
         return fitness
+
+    def _to_callable(self, individual):
+        # Currently need to do 2 evals. TODO: Reduce this to one
+        init = self.toolbox.compile(expr=individual)
+        return eval(str(init), self.pset.context, {})

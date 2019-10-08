@@ -1,6 +1,6 @@
 import src.customtypes as types
 import random
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, LinearSVR
 
 def _create_estimator(method, *params):
 
@@ -9,8 +9,8 @@ def _create_estimator(method, *params):
     for param in params:
         param_dict[param.name] = param.val
 
-    # Required for linear SVC
-    if method == LinearSVC:
+    # Required for linear SVM
+    if method in [LinearSVR, LinearSVC]:
         param_dict["dual"] = False
 
     model = method(**param_dict)
@@ -28,33 +28,23 @@ def add_estimators(pset, estimator_map, estimator_type):
     :return:
     """
 
-
-    # For sharing parameter types
-    all_parameter_types = {}
-
     for estimator in estimator_map:
         estimator_params = estimator_map[estimator]
 
         inputs = []
         for param in estimator_params:
-            param_name = str(param)
+            param_name = str(estimator) + "_" + str(param)
 
-            if param_name in all_parameter_types:
-                # Already made this type, reuse it. This is so we can cross types over
-                param_type = all_parameter_types[param_name]
-            else:
-                # Must add the type
-                value_range = estimator_params[param]
+            # Must add the type
+            value_range = estimator_params[param]
 
-                param_type = type(param, (), {'name': param, '__init__': types.param_init, '__str__': types.param_str,
-                                    '__repr__': types.param_str})
+            param_type = type(param, (), {'name': param, '__init__': types.param_init, '__str__': types.param_str,
+                                '__repr__': types.param_str})
 
-                _add_hyperparameter(pset, param_name, param_type, value_range)
+            _add_hyperparameter(pset, param_name, param_type, value_range)
 
-                # For recreating the types
-                pset.context[param] = param_type
-
-                all_parameter_types[param_name] = param_type
+            # For recreating the types
+            pset.context[param] = param_type
 
             inputs.append(param_type)
 

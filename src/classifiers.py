@@ -1,17 +1,3 @@
-"""
-    This file contains the function and terminal
-    set used for the boosted pipelines, including
-    all feature selection methods, classifiers etc.
-
-    In the future it would be ideal to convert this
-    to an arg file to allow for easier expansion
-    for end users.
-
-    NOTE: Your IDE may report missing classes, because
-    many of these are created dynamically to allow for
-    easy expansion in the future (see customtypes.py)
-"""
-import src.customtypes as types
 from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression, SGDClassifier

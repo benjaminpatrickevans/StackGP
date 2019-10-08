@@ -49,7 +49,7 @@ base._pprint = _pprint
 '''
 Scikit learn doesnt allow varags as inputs, 
 so we need to define the two cases of our voting classifier.
-(3, and 5 inputs). 
+(3, and 5 inputs). TODO: Can we improve this?
 '''
 
 def named_estimators(*classifiers):
