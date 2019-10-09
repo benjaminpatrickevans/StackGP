@@ -56,13 +56,13 @@ class Base:
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset)
 
         # Between 1 layer and max depth high
-        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=self.max_depth)
+        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
 
         # Crossover
         toolbox.register("mate", deapfix.repeated_crossover, existing=self.cache, toolbox=toolbox)
 
         # Mutation
-        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=self.max_depth)
+        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=3)
         toolbox.register("mutate", deapfix.repeated_mutation, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
                          toolbox=toolbox)
 
@@ -114,7 +114,9 @@ class Base:
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
 
-        pareto_front = tools.ParetoFront()
+        # For floating point numbers, define a "tolerance" for the pareto front
+        similarity = lambda ind1, ind2: np.allclose(ind1.fitness.values, ind2.fitness.values)
+        pareto_front = tools.ParetoFront(similar=similarity)
 
         pop, logbook, generations = search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
                                    lambda_=self.pop_size, cxpb=self.crs_rate,
@@ -122,13 +124,12 @@ class Base:
                                    end_time=self.end_time, stats=stats, halloffame=pareto_front)
 
         if verbose:
-            print("Best model found:", pareto_front[0])
+            print("Best model found:", pareto_front[0], "with fitness of", pareto_front[0].fitness)
             print("Percentage of unique models", (len(self.cache) / (generations * self.pop_size)) * 100)
 
         # Use the model with the heighest fitness
         self.model = self._to_callable(pareto_front[0])
         self.model.fit(data_x, data_y)
-
 
         self._print_pareto(pareto_front)
 
@@ -140,12 +141,10 @@ class Base:
 
     def _calculate_complexity(self, tree_str):
         # Complexity measured by the number of voting nodes - TODO: one pass
-        complexity = (3. * tree_str.count("Voting3")) + (5. * tree_str.count("Voting5"))
+        complexity = (3 * tree_str.count("Voting3")) + (5 * tree_str.count("Voting5")) +\
+                     (3 * tree_str.count("Stacking3")) + (5 * tree_str.count("Stacking5"))
 
-        # Max theoretical complexity would be if every internal node was a Voting5 node
-        max_complexity = 5 ** self.max_depth
-
-        return complexity #/ max_complexity
+        return complexity
 
     def predict(self, x):
         if self.model is None:

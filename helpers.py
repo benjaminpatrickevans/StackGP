@@ -42,7 +42,9 @@ def read_data(data_path, classification=True):
     data = pd.read_csv(data_path)
     data = data.replace('?', np.NaN)  # We interpret question marks as missing values
 
-    x = data.drop("class", axis=1).values
+    print(data)
+
+    x = data.drop("class", axis=1)#.values
 
     y = data["class"]
     y = np.reshape(y.values, (-1, 1))  # Flatten the y so its shape (len, 1)
@@ -51,6 +53,9 @@ def read_data(data_path, classification=True):
         # Need to make outputs integers for sklearn
         le = LabelEncoder()
         y = le.fit_transform(y)
+
+    num_features = x.shape[1]
+    x.columns = ["f" + str(i) for i in range(num_features)]
 
     return pd.DataFrame(x), pd.DataFrame(y)
 

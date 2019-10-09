@@ -4,7 +4,7 @@ from sklearn.base import ClassifierMixin as Classifier
 
 class StackGPClassifier(Base):
 
-    def __init__(self, pop_size=1024, max_run_time_mins=60, crs_rate=0.8, mut_rate=0.2, max_depth=17, n_jobs=1,
+    def __init__(self, pop_size=100, max_run_time_mins=60, crs_rate=0.8, mut_rate=0.2, max_depth=17, n_jobs=1,
                  verbose=0, random_state=0):
         self.est_type = Classifier
         self.scorer = "f1_weighted"

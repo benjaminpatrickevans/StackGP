@@ -3,11 +3,12 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
+from mlxtend.classifier import StackingCVClassifier
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier, GradientBoostingClassifier
 from xgboost import XGBClassifier
 from sklearn.ensemble import VotingClassifier
 from sklearn.base import ClassifierMixin as Classifier
-from src.combiners import Voting3Classifier, Voting5Classifier
+from src.combiners import Voting3Classifier, Voting5Classifier, Stacking3Classifier, Stacking5Classifier
 import numpy as np
 
 classifier_map = {
@@ -66,3 +67,11 @@ def add_voters(pset):
                       name="Voting5")
 
     pset.context["VotingClassifier"] = VotingClassifier
+
+    pset.addPrimitive(lambda meta, p1, p2, p3: Stacking3Classifier(p1, p2, p3, meta_classifier=meta),
+                      [Classifier] * 4, Classifier, name="Stacking3")
+
+    pset.addPrimitive(lambda meta, p1, p2, p3, p4, p5: Stacking5Classifier(p1, p2, p3, p4, p5, meta_classifier=meta),
+                      [Classifier] * 6, Classifier, name="Stacking5")
+
+    pset.context["StackingCVClassifier"] = StackingCVClassifier

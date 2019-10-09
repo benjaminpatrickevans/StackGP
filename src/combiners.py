@@ -2,6 +2,7 @@ from sklearn.ensemble import VotingClassifier, VotingRegressor
 from sklearn import base
 import numpy as np
 from sklearn.externals import six
+from mlxtend.classifier import StackingCVClassifier
 
 # Sklearn has hardcoded limits for repr outputs which is obviously not desirable for recreating, so this needs to be
 # overriden without the limits
@@ -52,9 +53,28 @@ so we need to define the two cases of our voting classifier.
 (3, and 5 inputs). TODO: Can we improve this?
 '''
 
+class StackingBaseClassifier(StackingCVClassifier):
+
+    def __repr__(self):
+        return "StackingCVClassifier(classifiers=" + repr(self.classifiers) + ", meta_classifier="\
+               + repr(self.meta_classifier) + ")"
+
+    __str__ = __repr__
+
+class Stacking3Classifier(StackingBaseClassifier):
+
+    def __init__(self, clf1, clf2, clf3, meta_classifier):
+        super().__init__(classifiers=[clf1, clf2, clf3], meta_classifier=meta_classifier)
+
+
+class Stacking5Classifier(StackingBaseClassifier):
+
+    def __init__(self, clf1, clf2, clf3, cl4, clf5, meta_classifier):
+        super().__init__(classifiers=[clf1, clf2, clf3, cl4, clf5], meta_classifier=meta_classifier)
+
+
 def named_estimators(*classifiers):
     return [("Est" + str(idx), clf) for idx, clf in enumerate(classifiers)]
-
 
 class VotingBaseClassifier(VotingClassifier):
 
@@ -93,7 +113,7 @@ class Voting5Classifier(VotingBaseClassifier):
 
 class Voting3Regressor(VotingBaseRegressor):
     def __init__(self, clf1, clf2, clf3):
-        estimators =named_estimators(clf1, clf2, clf3)
+        estimators = named_estimators(clf1, clf2, clf3)
         super().__init__(estimators=estimators)
 
 

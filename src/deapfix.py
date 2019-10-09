@@ -95,9 +95,17 @@ def generate(pset, min_, max_, condition, type_=None):
 
                 # In this case we need to keep growing, so add a primitive rather than a terminal
                 if type_.__name__ in ["ClassifierMixin", "RegressorMixin"]:
+
                     # If we try add a classifier terminal, instead add a classifier primitive.
+
                     # Do not add a VotingClassifier  though or we risk getting stuck in an infinite loop
-                    prim = next((x for x in pset.primitives[type_] if "Voting" not in x.name), None)
+                    bad_prefixes = ["Voting", "Stacking"]
+
+                    # Find a primitive which does not begin with any of the prefixes in the bad_prefixes
+                    prim = next(x for x in pset.primitives[type_]
+                                if not any(x.name.startswith(bad_prefix) for bad_prefix in bad_prefixes))
+
+                    print("Using ", prim, " for a primitive since no terminal was found")
                 else:
                     raise IndexError("No terminals found for type", type_, "please check function and terminal set")
 
