@@ -57,20 +57,22 @@ class StackingBaseClassifier(StackingCVClassifier):
 
     def __repr__(self):
         return "StackingCVClassifier(classifiers=" + repr(self.classifiers) + ", meta_classifier="\
-               + repr(self.meta_classifier) + ")"
+               + repr(self.meta_classifier) + ", use_features_in_secondary=" + repr(self.use_features_in_secondary) + ")"
 
     __str__ = __repr__
 
 class Stacking3Classifier(StackingBaseClassifier):
 
-    def __init__(self, clf1, clf2, clf3, meta_classifier):
-        super().__init__(classifiers=[clf1, clf2, clf3], meta_classifier=meta_classifier)
+    def __init__(self, clf1, clf2, clf3, meta_classifier, use_features):
+        super().__init__(classifiers=[clf1, clf2, clf3], meta_classifier=meta_classifier,
+                         use_features_in_secondary=use_features)
 
 
 class Stacking5Classifier(StackingBaseClassifier):
 
-    def __init__(self, clf1, clf2, clf3, cl4, clf5, meta_classifier):
-        super().__init__(classifiers=[clf1, clf2, clf3, cl4, clf5], meta_classifier=meta_classifier)
+    def __init__(self, clf1, clf2, clf3, cl4, clf5, meta_classifier, use_features):
+        super().__init__(classifiers=[clf1, clf2, clf3, cl4, clf5], meta_classifier=meta_classifier,
+                         use_features_in_secondary=use_features)
 
 
 def named_estimators(*classifiers):
