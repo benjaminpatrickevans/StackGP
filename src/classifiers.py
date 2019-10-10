@@ -1,7 +1,7 @@
 from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression, SGDClassifier
-from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB
 from sklearn.tree import DecisionTreeClassifier
 from mlxtend.classifier import StackingCVClassifier
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier, GradientBoostingClassifier
@@ -14,42 +14,81 @@ import random
 import src.customtypes as types
 
 classifier_map = {
-        # Naive Bayes
-        GaussianNB: {},
+    # Classifiers
+    GaussianNB: {
+    },
 
-        # Decision Trees
-        DecisionTreeClassifier: {},
+    BernoulliNB: {
+        'alpha': [1e-3, 1e-2, 1e-1, 1., 10., 100.],
+        'fit_prior': [True, False]
+    },
 
-        # Logistic Regression and Linear SVC
-        LogisticRegression:  {
-            "C": np.logspace(-3, 2, 6),
-            "penalty": ["l1", "l2"]
-        },
+    MultinomialNB: {
+        'alpha': [1e-3, 1e-2, 1e-1, 1., 10., 100.],
+        'fit_prior': [True, False]
+    },
 
-        LinearSVC:  {
-            "C": np.logspace(-3, 2, 6),
-            "penalty": ["l1", "l2"],
-            "dual": [False]
-        },
+    DecisionTreeClassifier: {
+        'criterion': ["gini", "entropy"],
+        'max_depth': range(1, 11),
+        'min_samples_split': range(2, 21),
+        'min_samples_leaf': range(1, 21)
+    },
 
-        KNeighborsClassifier: {
-            "n_neighbors": range(1, 50)
-        },
+    ExtraTreesClassifier: {
+        'n_estimators': [100],
+        'criterion': ["gini", "entropy"],
+        'max_features': np.arange(0.05, 1.01, 0.05),
+        'min_samples_split': range(2, 21),
+        'min_samples_leaf': range(1, 21),
+        'bootstrap': [True, False]
+    },
 
-        RandomForestClassifier: {
-            "n_estimators": range(10, 150)
-        },
+    RandomForestClassifier: {
+        'n_estimators': [100],
+        'criterion': ["gini", "entropy"],
+        'max_features': np.arange(0.05, 1.01, 0.05),
+        'min_samples_split': range(2, 21),
+        'min_samples_leaf':  range(1, 21),
+        'bootstrap': [True, False]
+    },
 
-        AdaBoostClassifier: {
-            "n_estimators": range(10, 150)
-        },
+    GradientBoostingClassifier: {
+        'n_estimators': [100],
+        'learning_rate': [1e-3, 1e-2, 1e-1, 0.5, 1.],
+        'max_depth': range(1, 11),
+        'min_samples_split': range(2, 21),
+        'min_samples_leaf': range(1, 21),
+        'subsample': np.arange(0.05, 1.01, 0.05),
+        'max_features': np.arange(0.05, 1.01, 0.05)
+    },
 
-        XGBClassifier: {
-            "n_estimators": range(10, 150),
-            "booster": ["gbtree", "gblinear", "dart"],
-            "max_depth": range(2, 8),
-            "learning_rate":  [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.5]
-            }
+    KNeighborsClassifier: {
+        'n_neighbors': range(1, 101),
+        'weights': ["uniform", "distance"],
+        'p': [1, 2]
+    },
+
+    LinearSVC: {
+        'penalty': ["l1", "l2"],
+        'dual': [False],
+        'tol': [1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
+        'C': [1e-4, 1e-3, 1e-2, 1e-1, 0.5, 1., 5., 10., 15., 20., 25.]
+    },
+
+    LogisticRegression: {
+        'penalty': ["l1", "l2"],
+        'C': [1e-4, 1e-3, 1e-2, 1e-1, 0.5, 1., 5., 10., 15., 20., 25.],
+    },
+
+    XGBClassifier: {
+        'n_estimators': [100],
+        'max_depth': range(1, 11),
+        'learning_rate': [1e-3, 1e-2, 1e-1, 0.5, 1.],
+        'subsample': np.arange(0.05, 1.01, 0.05),
+        'min_child_weight': range(1, 21),
+        'nthread': [1]
+    },
 }
 
 def add_voters(pset):

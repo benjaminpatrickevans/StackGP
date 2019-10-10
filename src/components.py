@@ -27,7 +27,6 @@ def add_estimators(pset, estimator_map, estimator_type):
     :param estimator_type:
     :return:
     """
-
     for estimator in estimator_map:
         estimator_params = estimator_map[estimator]
 

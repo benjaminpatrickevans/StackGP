@@ -142,7 +142,7 @@ class Base:
     def _calculate_complexity(self, tree_str):
         # Complexity measured by the number of voting nodes - TODO: one pass
         complexity = (3 * tree_str.count("Voting3")) + (5 * tree_str.count("Voting5")) +\
-                     (3 * tree_str.count("Stacking3")) + (5 * tree_str.count("Stacking5"))
+                     (4 * tree_str.count("Stacking3")) + (6 * tree_str.count("Stacking5"))
 
         return complexity
 
@@ -165,8 +165,13 @@ class Base:
 
         model = self._to_callable(individual)
 
-        # Crossfold validation
-        score = cross_val_score(model, x, y, cv=3, scoring=self.scorer, n_jobs=self.n_jobs)
+        try:
+            # Crossfold validation
+            score = cross_val_score(model, x, y, cv=3, scoring=self.scorer, n_jobs=self.n_jobs)
+        except ValueError as e:
+            if self.verbose:
+                print("Error occured in eval", e, "setting f1 score to 0")
+            score = 0
 
         complexity = self._calculate_complexity(tree_str)
 
