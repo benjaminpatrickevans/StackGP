@@ -73,6 +73,7 @@ class VotingBaseClassifier(VotingClassifier):
 
     __str__ = __repr__
 
+
 class VotingBaseRegressor(VotingRegressor):
 
     def __init__(self, estimators):

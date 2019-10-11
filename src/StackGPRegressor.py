@@ -12,8 +12,6 @@ class StackGPRegressor(Base):
         super().__init__(pop_size=pop_size, max_run_time_mins=max_run_time_mins, crs_rate=crs_rate, mut_rate=mut_rate,
                          max_depth=max_depth, n_jobs=n_jobs, verbose=verbose, random_state=random_state)
 
-    def _add_estimators(self, pset):
+    def _add_components(self, pset):
         components.add_estimators(pset, regressors.estimators, regressors.Regressor)
-
-    def _add_voters(self, pset):
         regressors.add_voters(pset)

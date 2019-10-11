@@ -102,10 +102,14 @@ def generate(pset, min_, max_, condition, type_=None):
                     bad_prefixes = ["Voting", "Stacking"]
 
                     # Find a primitive which does not begin with any of the prefixes in the bad_prefixes
-                    prim = next(x for x in pset.primitives[type_]
-                                if not any(x.name.startswith(bad_prefix) for bad_prefix in bad_prefixes))
+                    allowed_primitives = [prim for prim in pset.primitives[type_]
+                                if not any(prim.name.startswith(bad_prefix) for bad_prefix in bad_prefixes)]
 
-                    print("Using ", prim, " for a primitive since no terminal was found")
+                    prim = random.choice(allowed_primitives)
+
+                    print("Using ", prim.name, " for a primitive since no terminal was found")
+                    # TODO: We should set a flag to make sure we set dummy values for the preprocessing steps here
+
                 else:
                     raise IndexError("No terminals found for type", type_, "please check function and terminal set")
 

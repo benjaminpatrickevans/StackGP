@@ -92,10 +92,7 @@ classifier_map = {
     },
 }
 
-def _to_pipeline(method):
-    return Pipeline(steps=[("Combine", method)])
-
-def add_voters(pset):
+def add_combiners(pset):
     """
         Voters turn individual classifiers into a
         majority-vote ensemble

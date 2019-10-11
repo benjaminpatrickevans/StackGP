@@ -106,8 +106,8 @@ class Base:
         random.seed(self.random_state)
         np.random.seed(self.random_state)
 
-        self._add_estimators(self.pset)
-        self._add_voters(self.pset)
+        # Defined by the subclass
+        self._add_components(self.pset)
 
         # Make it 1D
         data_y = data_y.values.reshape(-1,)
@@ -163,6 +163,8 @@ class Base:
 
         tree_str = str(individual)
 
+        print(tree_str)
+
         # Avoid recomputing fitness
         if tree_str in self.cache:
             return self.cache[tree_str]
@@ -190,7 +192,7 @@ class Base:
         return fitness
 
     def _to_callable(self, individual):
+        print(individual)
         # Currently need to do 2 evals. TODO: Reduce this to one
         init = self.toolbox.compile(expr=individual)
-        print(init)
         return eval(str(init), self.pset.context, {})
