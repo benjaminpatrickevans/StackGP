@@ -2,9 +2,16 @@ import src.customtypes as types
 import random
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection.base import SelectorMixin
+from math import inf
+
+class CustomPipeline(Pipeline):
+
+    def __repr__(self, N_CHAR_MAX=inf):
+        return super().__repr__(N_CHAR_MAX=N_CHAR_MAX)
+
+    __str__ = __repr__
 
 def _create_estimator(method, prev_steps, *params):
-
     param_dict = {}
 
     for param in params:
@@ -12,7 +19,8 @@ def _create_estimator(method, prev_steps, *params):
 
     model = method(**param_dict)
 
-    return Pipeline(steps=prev_steps + [("clf", model)])
+    return CustomPipeline(steps=prev_steps + [("clf", model)])
+
 
 def _create_preprocessor(method, prev_steps, *params):
 
@@ -24,6 +32,7 @@ def _create_preprocessor(method, prev_steps, *params):
     model = method(**param_dict)
 
     return prev_steps + [("Preprocessor" + str(len(prev_steps)), model)]
+
 
 def add_estimators(pset, estimator_map, estimator_type):
     """
@@ -60,6 +69,7 @@ def add_estimators(pset, estimator_map, estimator_type):
             param_inputs.append(param_type)
 
         _add_estimator(pset, estimator, param_inputs, estimator_type, prev_step)
+
 
 def _add_hyperparameter(pset, name, ret_type, value_range):
     pset.addEphemeralConstant(name, lambda: ret_type(random.choice(value_range)), ret_type)

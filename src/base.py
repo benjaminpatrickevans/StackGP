@@ -7,6 +7,8 @@ import time
 from math import inf
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
+from src.components import CustomPipeline
+from xgboost.core import XGBoostError
 
 class Base:
     """
@@ -47,6 +49,7 @@ class Base:
 
         # So we can recreate sklearn pipelines
         pset.context["Pipeline"] = Pipeline
+        pset.context["CustomPipeline"] = CustomPipeline
 
         return pset
 
@@ -177,8 +180,14 @@ class Base:
             # Average across the folds
             score = score.mean()
         except ValueError as e:
+            #raise e
+
+            # TODO: Decide what to do in this case
             if self.verbose:
                 print("Error occured in eval", e, "setting f1 score to 0")
+            score = 0
+        except XGBoostError as e:
+            print("Error with xgboost", e)
             score = 0
 
         complexity = self._calculate_complexity(tree_str)
@@ -192,7 +201,6 @@ class Base:
         return fitness
 
     def _to_callable(self, individual):
-        print(individual)
         # Currently need to do 2 evals. TODO: Reduce this to one
         init = self.toolbox.compile(expr=individual)
         return eval(str(init), self.pset.context, {})
