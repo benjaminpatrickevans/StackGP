@@ -43,17 +43,15 @@ def _pprint(params, offset=0, printer=repr):
     lines = '\n'.join(l.rstrip(' ') for l in lines.split('\n'))
     return lines
 
-
+# To nesure we dont crop the repr methods
 base._pprint = _pprint
 
 
-'''
-Scikit learn doesnt allow varags as inputs, 
-so we need to define the two cases of our voting classifier.
-(3, and 5 inputs). TODO: Can we improve this?
-'''
-
 class StackingBaseClassifier(StackingCVClassifier):
+
+    def __init__(self, classifiers, meta_classifier, use_features):
+        super().__init__(classifiers=classifiers, meta_classifier=meta_classifier,
+                         use_features_in_secondary=use_features)
 
     def __repr__(self):
         return "StackingCVClassifier(classifiers=" + repr(self.classifiers) + ", meta_classifier="\
@@ -61,27 +59,13 @@ class StackingBaseClassifier(StackingCVClassifier):
 
     __str__ = __repr__
 
-class Stacking3Classifier(StackingBaseClassifier):
-
-    def __init__(self, clf1, clf2, clf3, meta_classifier, use_features):
-        super().__init__(classifiers=[clf1, clf2, clf3], meta_classifier=meta_classifier,
-                         use_features_in_secondary=use_features)
-
-
-class Stacking5Classifier(StackingBaseClassifier):
-
-    def __init__(self, clf1, clf2, clf3, cl4, clf5, meta_classifier, use_features):
-        super().__init__(classifiers=[clf1, clf2, clf3, cl4, clf5], meta_classifier=meta_classifier,
-                         use_features_in_secondary=use_features)
-
-
-def named_estimators(*classifiers):
-    return [("Est" + str(idx), clf) for idx, clf in enumerate(classifiers)]
 
 class VotingBaseClassifier(VotingClassifier):
 
     def __init__(self, estimators):
-        super().__init__(estimators=estimators)
+        named_estimators = [("Est" + str(idx), clf) for idx, clf in enumerate(estimators)]
+        # They must be named
+        super().__init__(estimators=named_estimators)
 
     def __repr__(self):
         # When recreating, we can just make a VotingClassifier now
@@ -92,34 +76,11 @@ class VotingBaseClassifier(VotingClassifier):
 class VotingBaseRegressor(VotingRegressor):
 
     def __init__(self, estimators):
-        super().__init__(estimators=estimators)
+        named_estimators = [("Est" + str(idx), clf) for idx, clf in enumerate(estimators)]
+        super().__init__(estimators=named_estimators)
 
     def __repr__(self):
         # When recreating, we can just make a VotingClassifier now
         return "VotingRegressor(estimators=" + repr(self.estimators) + ")"
 
     __str__ = __repr__
-
-
-class Voting3Classifier(VotingBaseClassifier):
-    def __init__(self, clf1, clf2, clf3):
-        estimators = named_estimators(clf1, clf2, clf3)
-        super().__init__(estimators=estimators)
-
-
-class Voting5Classifier(VotingBaseClassifier):
-    def __init__(self, clf1, clf2, clf3, clf4, clf5):
-        estimators = named_estimators(clf1, clf2, clf3, clf4, clf5)
-        super().__init__(estimators=estimators)
-
-
-class Voting3Regressor(VotingBaseRegressor):
-    def __init__(self, clf1, clf2, clf3):
-        estimators = named_estimators(clf1, clf2, clf3)
-        super().__init__(estimators=estimators)
-
-
-class Voting5Regressor(VotingBaseRegressor):
-    def __init__(self, clf1, clf2, clf3, clf4, clf5):
-        estimators = named_estimators(clf1, clf2, clf3, clf4, clf5)
-        super().__init__(estimators=estimators)

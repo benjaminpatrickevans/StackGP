@@ -6,7 +6,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import LinearSVR
 from xgboost import XGBRegressor
 from sklearn.base import RegressorMixin as Regressor
-from src.combiners import Voting3Regressor, Voting5Regressor
+from src.combiners import VotingBaseRegressor
 import numpy as np
 
 estimators = {
@@ -93,10 +93,10 @@ def add_voters(pset):
     :return:
     """
     # Combine classifiers into a single voting classifier
-    pset.addPrimitive(lambda p1, p2, p3: Voting3Regressor(p1, p2, p3), [Regressor] * 3, Regressor,
+    pset.addPrimitive(lambda p1, p2, p3: VotingBaseRegressor([p1, p2, p3]), [Regressor] * 3, Regressor,
                       name="Voting3")
 
-    pset.addPrimitive(lambda p1, p2, p3, p4, p5: Voting5Regressor(p1, p2, p3, p4, p5), [Regressor] * 5, Regressor,
+    pset.addPrimitive(lambda p1, p2, p3, p4, p5: VotingBaseRegressor([p1, p2, p3, p4, p5]), [Regressor] * 5, Regressor,
                       name="Voting5")
 
     pset.context["VotingRegressor"] = VotingRegressor

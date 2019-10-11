@@ -1,6 +1,7 @@
 import src.customtypes as types
 import random
 from sklearn.svm import LinearSVC, LinearSVR
+from sklearn.pipeline import Pipeline
 
 def _create_estimator(method, *params):
 
@@ -9,13 +10,13 @@ def _create_estimator(method, *params):
     for param in params:
         param_dict[param.name] = param.val
 
-    # Required for linear SVM
+    # Required for linear SVM. TODO: Can we remove this and only allow dual in hyperparams?
     if method in [LinearSVR, LinearSVC]:
         param_dict["dual"] = False
 
     model = method(**param_dict)
 
-    return model
+    return Pipeline(steps=[("clf", model)])
 
 def add_estimators(pset, estimator_map, estimator_type):
     """

@@ -6,6 +6,7 @@ import operator
 import time
 from math import inf
 from sklearn.model_selection import cross_val_score
+from sklearn.pipeline import Pipeline
 
 class Base:
     """
@@ -43,6 +44,9 @@ class Base:
 
         # So we can recreate np arrays
         pset.context["array"] = np.array
+
+        # So we can recreate sklearn pipelines
+        pset.context["Pipeline"] = Pipeline
 
         return pset
 
@@ -168,6 +172,8 @@ class Base:
         try:
             # Crossfold validation
             score = cross_val_score(model, x, y, cv=3, scoring=self.scorer, n_jobs=self.n_jobs)
+            # Average across the folds
+            score = score.mean()
         except ValueError as e:
             if self.verbose:
                 print("Error occured in eval", e, "setting f1 score to 0")
@@ -176,7 +182,7 @@ class Base:
         complexity = self._calculate_complexity(tree_str)
 
         # Fitness is the average score (across folds) and the complexity
-        fitness = score.mean(), complexity
+        fitness = score, complexity
 
         # Store fitness in cache so we don't need to reevaluate
         self.cache[tree_str] = fitness
@@ -186,4 +192,5 @@ class Base:
     def _to_callable(self, individual):
         # Currently need to do 2 evals. TODO: Reduce this to one
         init = self.toolbox.compile(expr=individual)
+        print(init)
         return eval(str(init), self.pset.context, {})
