@@ -13,5 +13,5 @@ class StackGPRegressor(Base):
                          max_depth=max_depth, n_jobs=n_jobs, verbose=verbose, random_state=random_state)
 
     def _add_components(self, pset):
-        components.add_estimators(pset, regressors.estimators, regressors.Regressor)
+        components.add_components(pset, regressors.estimators, regressors.Regressor)
         regressors.add_voters(pset)

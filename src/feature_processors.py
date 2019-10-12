@@ -101,10 +101,6 @@ class SelectChi2(SelectPercentileBase):
 
 # Selectors
 processors = {
-    PCA: {
-        # TODO: Custom PCA with percentage
-    },
-
     # Dummy for skipping feature preprocessing
     DummySelector: {},
 

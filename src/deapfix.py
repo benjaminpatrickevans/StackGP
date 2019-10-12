@@ -82,9 +82,11 @@ def generate(pset, min_, max_, condition, type_=None):
     height = random.randint(min_, max_)
     stack = [(0, type_)]
 
+    should_stop_growing = False
+
     while len(stack) != 0:
         depth, type_ = stack.pop()
-        if condition(height, depth):
+        if condition(height, depth) or should_stop_growing:
             try:
                 term = add_terminal(pset, type_)
                 expr.append(term)
@@ -108,15 +110,17 @@ def generate(pset, min_, max_, condition, type_=None):
                     prim = random.choice(allowed_primitives)
 
                     print("Using ", prim.name, " for a primitive since no terminal was found")
+
                     # TODO: We should set a flag to make sure we set dummy values for the preprocessing steps here
+                    should_stop_growing = True
+
+                    # Add the primitive and continue the loop
+                    expr.append(prim)
+                    for arg in reversed(prim.args):
+                        stack.append((depth + 1, arg))
 
                 else:
                     raise IndexError("No terminals found for type", type_, "please check function and terminal set")
-
-                # Add the primitive and continue the loop
-                expr.append(prim)
-                for arg in reversed(prim.args):
-                    stack.append((depth + 1, arg))
 
         else:
             try:

@@ -2,14 +2,22 @@ import src.customtypes as types
 import random
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection.base import SelectorMixin
+from sklearn.base import ClassifierMixin, RegressorMixin
 from math import inf
 
+
 class CustomPipeline(Pipeline):
+    """
+    Exactly the same as sklearn pipeline except for the fact that
+    repr does not trim the output. Needed to recreate pipelines
+    with eval(repr(pipe)).
+    """
 
     def __repr__(self, N_CHAR_MAX=inf):
         return super().__repr__(N_CHAR_MAX=N_CHAR_MAX)
 
     __str__ = __repr__
+
 
 def _create_estimator(method, prev_steps, *params):
     param_dict = {}
@@ -34,21 +42,19 @@ def _create_preprocessor(method, prev_steps, *params):
     return prev_steps + [("Preprocessor" + str(len(prev_steps)), model)]
 
 
-def add_estimators(pset, estimator_map, estimator_type):
+def add_components(pset, components, component_type, prev_step):
     """
     Add the estimators and associated hyperparameters
     defined in estimator_map.
 
     :param pset:
-    :param estimator_map:
-    :param estimator_type:
+    :param components:
+    :param component_type:
     :return:
     """
 
-    prev_step = SelectorMixin
-
-    for estimator in estimator_map:
-        estimator_params = estimator_map[estimator]
+    for estimator in components:
+        estimator_params = components[estimator]
 
         param_inputs = []
 
@@ -68,7 +74,10 @@ def add_estimators(pset, estimator_map, estimator_type):
 
             param_inputs.append(param_type)
 
-        _add_estimator(pset, estimator, param_inputs, estimator_type, prev_step)
+        if component_type in [ClassifierMixin, RegressorMixin]:
+            _add_estimator(pset, estimator, param_inputs, component_type, prev_step)
+        elif component_type == SelectorMixin:
+            _add_preprocessor(pset, estimator, param_inputs, component_type)
 
 
 def _add_hyperparameter(pset, name, ret_type, value_range):
@@ -93,43 +102,7 @@ def _add_estimator(pset, est, param_inputs, estimator_type, prev_step_type):
                       estimator_type, name=est_name + "EstimatorDefault")
 
 
-def add_feature_preprocessors(pset, preprocessor_map):
-    """
-    Add the estimators and associated hyperparameters
-    defined in estimator_map.
-
-    :param pset:
-    :param preprocessor_map:
-    :param estimator_type:
-    :return:
-    """
-
-    estimator_type = SelectorMixin
-
-    for preprocessor in preprocessor_map:
-        preprocessor_params = preprocessor_map[preprocessor]
-
-        inputs = []
-        for param in preprocessor_params:
-            param_name = str(preprocessor) + "_" + str(param)
-
-            # Must add the type
-            value_range = preprocessor_params[param]
-
-            param_type = type(param, (), {'name': param, '__init__': types.param_init, '__str__': types.param_str,
-                                '__repr__': types.param_str})
-
-            _add_hyperparameter(pset, param_name, param_type, value_range)
-
-            # For recreating the types
-            pset.context[param] = param_type
-
-            inputs.append(param_type)
-
-        _add_feature_preprocessor(pset, preprocessor, inputs, estimator_type)
-
-
-def _add_feature_preprocessor(pset, processor, param_inputs, estimator_type):
+def _add_preprocessor(pset, processor, param_inputs, estimator_type):
     processor_name = processor.__name__
 
     # For recreating

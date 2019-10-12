@@ -1,6 +1,7 @@
 from src.base import Base
 from src import classifiers, components, feature_processors
 from sklearn.base import ClassifierMixin as Classifier
+from sklearn.feature_selection.base import SelectorMixin
 
 class StackGPClassifier(Base):
 
@@ -14,10 +15,10 @@ class StackGPClassifier(Base):
     def _add_components(self, pset):
 
         # Feature selectors
-        components.add_feature_preprocessors(pset, feature_processors.processors)
+        components.add_components(pset, feature_processors.processors, SelectorMixin, prev_step=None)
 
         # Classifiers
-        components.add_estimators(pset, classifiers.classifier_map, classifiers.Classifier)
+        components.add_components(pset, classifiers.classifier_map, Classifier, prev_step=SelectorMixin)
 
         # Combiners
         classifiers.add_combiners(pset)
