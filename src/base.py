@@ -166,8 +166,6 @@ class Base:
 
         tree_str = str(individual)
 
-        print(tree_str)
-
         # Avoid recomputing fitness
         if tree_str in self.cache:
             return self.cache[tree_str]

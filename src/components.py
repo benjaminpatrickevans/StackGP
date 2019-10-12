@@ -42,10 +42,10 @@ def _create_preprocessor(method, prev_steps, *params):
     return prev_steps + [("Preprocessor" + str(len(prev_steps)), model)]
 
 
-def add_components(pset, components, component_type, prev_step):
+def add_components(pset, components, component_type, prev_step_type):
     """
-    Add the estimators and associated hyperparameters
-    defined in estimator_map.
+    Add the components (selectors, processors, estimators) and associated hyperparameters
+    given in components.
 
     :param pset:
     :param components:
@@ -53,13 +53,13 @@ def add_components(pset, components, component_type, prev_step):
     :return:
     """
 
-    for estimator in components:
-        estimator_params = components[estimator]
+    for component in components:
+        estimator_params = components[component]
 
         param_inputs = []
 
         for param in estimator_params:
-            param_name = str(estimator) + "_" + str(param)
+            param_name = str(component) + "_" + str(param)
 
             # Must add the type
             value_range = estimator_params[param]
@@ -75,9 +75,9 @@ def add_components(pset, components, component_type, prev_step):
             param_inputs.append(param_type)
 
         if component_type in [ClassifierMixin, RegressorMixin]:
-            _add_estimator(pset, estimator, param_inputs, component_type, prev_step)
-        elif component_type == SelectorMixin:
-            _add_preprocessor(pset, estimator, param_inputs, component_type)
+            _add_estimator(pset, component, param_inputs, component_type, prev_step_type)
+        else:
+            _add_preprocessor(pset, component, param_inputs, component_type, prev_step_type)
 
 
 def _add_hyperparameter(pset, name, ret_type, value_range):
@@ -102,17 +102,36 @@ def _add_estimator(pset, est, param_inputs, estimator_type, prev_step_type):
                       estimator_type, name=est_name + "EstimatorDefault")
 
 
-def _add_preprocessor(pset, processor, param_inputs, estimator_type):
+def _add_preprocessor(pset, processor, param_inputs, preprocessor_type, prev_step_type):
     processor_name = processor.__name__
 
     # For recreating
     pset.context[processor_name] = processor
 
-    # Custom parameters
-    if param_inputs:
-        pset.addPrimitive(lambda *params: _create_preprocessor(processor, [], *params), param_inputs,
-                          estimator_type, name=processor_name + "Selector")
+    # Cases when there is a previous step
+    if prev_step_type:
+        # Custom parameters
+        if param_inputs:
+            pset.addPrimitive(lambda prev_step, *params: _create_preprocessor(processor, prev_step, *params),
+                              [prev_step_type] + param_inputs,
+                              preprocessor_type, name=processor_name + "Processor")
+        else:
+            # No parameters. Note that unlike with classifiers the feature selectors do not all have default values
+            # which is why this "else" statement exists, whereas with classifiers we add both cases
+            pset.addPrimitive(lambda prev_step: _create_preprocessor(processor, prev_step),
+                              [prev_step_type],
+                              preprocessor_type, name=processor_name + "Processor")
+
+    # When its the first step in pipeline
     else:
-        # No parameters. Note that unlike with classifiers the feature selectors do not all have default values
-        # which is why this "else" statement exists, whereas with classifiers we add both cases
-        pset.addTerminal(_create_preprocessor(processor, []), estimator_type, name=processor_name + "Selector")
+        # Custom parameters
+        if param_inputs:
+            pset.addPrimitive(lambda *params: _create_preprocessor(processor, [], *params),
+                              param_inputs,
+                              preprocessor_type, name=processor_name + "Processor")
+        else:
+            # No parameters. Note that unlike with classifiers the feature selectors do not all have default values
+            # which is why this "else" statement exists, whereas with classifiers we add both cases
+            pset.addTerminal(_create_preprocessor(processor, []), preprocessor_type, name=processor_name + "Processor")
+
+

@@ -88,12 +88,13 @@ def generate(pset, min_, max_, condition, type_=None):
         depth, type_ = stack.pop()
         if condition(height, depth) or should_stop_growing:
             try:
-                term = add_terminal(pset, type_)
+                term = add_terminal(pset, type_, should_stop_growing)
                 expr.append(term)
             except IndexError as e:
                 # We couldnt find a terminal with this type, we want to keep growing in most cases till we get
                 # a terminal node. This is one of the inconsistencies with strongly typed GP, we can not
                 # just stop arbitrarily
+                should_stop_growing = True
 
                 # In this case we need to keep growing, so add a primitive rather than a terminal
                 if type_.__name__ in ["ClassifierMixin", "RegressorMixin"]:
@@ -107,20 +108,21 @@ def generate(pset, min_, max_, condition, type_=None):
                     allowed_primitives = [prim for prim in pset.primitives[type_]
                                 if not any(prim.name.startswith(bad_prefix) for bad_prefix in bad_prefixes)]
 
-                    prim = random.choice(allowed_primitives)
-
-                    print("Using ", prim.name, " for a primitive since no terminal was found")
-
-                    # TODO: We should set a flag to make sure we set dummy values for the preprocessing steps here
-                    should_stop_growing = True
-
-                    # Add the primitive and continue the loop
-                    expr.append(prim)
-                    for arg in reversed(prim.args):
-                        stack.append((depth + 1, arg))
-
                 else:
-                    raise IndexError("No terminals found for type", type_, "please check function and terminal set")
+                    # Need to use the dummy nodes
+                    allowed_primitives = [prim for prim in pset.primitives[type_] if prim.name.startswith("Dummy")]
+
+                # If at this stage we havent found a replacement, we must raise an exception.
+                if not allowed_primitives:
+                    print("No suitable replacements found. This indicates a misconfiguration and should not occur")
+                    raise e
+
+                prim = random.choice(allowed_primitives)
+
+                # Add the primitive and continue the loop
+                expr.append(prim)
+                for arg in reversed(prim.args):
+                    stack.append((depth + 1, arg))
 
         else:
             try:
@@ -141,9 +143,16 @@ def generate(pset, min_, max_, condition, type_=None):
     return expr
 
 
-def add_terminal(pset, type_):
+def add_terminal(pset, type_, requires_dummy=False):
     try:
-        term = random.choice(pset.terminals[type_])
+        allowed_terminals = pset.terminals[type_]
+
+        if requires_dummy and str(type_) in ["SelectorMixin", "TransformerMixin"] :
+            # For STGP, if we are supposed to stop early then we add dummy terminals.
+            # otherwise the effective branch length wont match whats desired
+            allowed_terminals = [term for term in allowed_terminals if str(term.name).startswith("Dummy")]
+
+        term = random.choice(allowed_terminals)
     except IndexError:
         _, _, traceback = sys.exc_info()
         raise IndexError("The custom generate function tried to add " \

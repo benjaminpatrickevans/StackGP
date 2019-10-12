@@ -10,15 +10,13 @@ class DummyTransformer(TransformerMixin):
         is so all pipelines can be treated as if they had a FS
         step.
     """
-
-    def _get_support_mask(self):
-        # All values selected
-        mask = np.ones(self.num_features, dtype=bool)
-        return mask
-
-    def fit(self, X, y):
-        self.num_features = X.shape[1]
+    def fit(self, X, y=None):
+        # Doesnt need to do anything
         return self
+
+    def transform(self, X):
+        # Return original X values
+        return X
 
     def __repr__(self):
         return "DummyTransformer()"
@@ -26,6 +24,9 @@ class DummyTransformer(TransformerMixin):
     __str__ = __repr__
 
 processors = {
+    DummyTransformer: {
+    },
+
     Binarizer: {
         'threshold': np.arange(0.0, 1.01, 0.05)
     },
