@@ -3,7 +3,14 @@ from sklearn.decomposition import PCA
 from sklearn.base import TransformerMixin
 import numpy as np
 
-class DummyTransformer(TransformerMixin):
+
+class DataProcessorType(TransformerMixin):
+    # Just needed so deap can distinguish between data and feature processors, since SelectorMixin is
+    # a subclass of TransformerMixin
+    pass
+
+
+class DummyTransformer(DataProcessorType):
     """
         This is a feature "selector" which does nothing,
         i.e. returns the original X values. The reason for this

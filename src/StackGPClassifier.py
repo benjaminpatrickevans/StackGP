@@ -15,13 +15,16 @@ class StackGPClassifier(Base):
     def _add_components(self, pset):
 
         # Data preprocessors
-        components.add_components(pset, data_processors.processors, TransformerMixin, prev_step_type=None)
+        components.add_components(pset, data_processors.processors, data_processors.DataProcessorType,
+                                  prev_step_type=None)
 
         # Feature selectors
-        components.add_components(pset, feature_processors.processors, SelectorMixin, prev_step_type=TransformerMixin)
+        components.add_components(pset, feature_processors.processors, feature_processors.FeatureProcessorType,
+                                  prev_step_type=data_processors.DataProcessorType)
 
         # Classifiers
-        components.add_components(pset, classifiers.classifier_map, ClassifierMixin, prev_step_type=SelectorMixin)
+        components.add_components(pset, classifiers.classifier_map, classifiers.ClassifierType,
+                                  prev_step_type=feature_processors.FeatureProcessorType)
 
         # Combiners
         classifiers.add_combiners(pset)

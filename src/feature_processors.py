@@ -1,5 +1,5 @@
 from sklearn.feature_selection import SelectPercentile, SelectFromModel
-from sklearn.decomposition import PCA
+from sklearn.base import TransformerMixin
 from sklearn.feature_selection import mutual_info_classif, chi2, f_classif
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
@@ -8,10 +8,11 @@ from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.feature_selection.base import SelectorMixin
 import random
-from src import customtypes as types
 
+class FeatureProcessorType(SelectorMixin):
+    pass
 
-class DummySelector(SelectorMixin):
+class DummySelector(FeatureProcessorType):
     """
         This is a feature "selector" which does nothing,
         i.e. returns the original X values. The reason for this
@@ -34,7 +35,7 @@ class DummySelector(SelectorMixin):
     __str__ = __repr__
 
 
-class RandomSelector(SelectorMixin):
+class RandomSelector(FeatureProcessorType):
     """
         This is a feature selector which returns a random subset
         of the original features.
@@ -61,7 +62,9 @@ class RandomSelector(SelectorMixin):
 
     def fit(self, X, y):
         self.num_features = X.shape[1]
-        self.num_features_to_select = int(self.num_features * (self.percentile / 100))
+        # Ensure we select atleast 1 feature
+        self.num_features_to_select = max(1, int(self.num_features * (self.percentile / 100)))
+
         return self
 
     def __repr__(self):
@@ -72,7 +75,8 @@ class RandomSelector(SelectorMixin):
 
 class SelectPercentileBase(SelectPercentile):
     """
-    SelectPercnetile with a recreatable repr.
+    SelectPercnetile with a recreatable repr
+    and ensuring we select atleast one feature.
     """
 
     def __init__(self, scorer, percentile):
@@ -82,6 +86,18 @@ class SelectPercentileBase(SelectPercentile):
         return self.__class__.__name__ + "(" + str(self.percentile) + ")"
 
     __str__ = __repr__
+
+    def fit(self, X, y):
+        # Just does a safety check to ensure we select atleast 1 feature
+        num_features = X.shape[1]
+
+        num_features_to_select = int(num_features * (self.percentile / 100))
+
+        if num_features_to_select == 0:
+            # The minimum percentage to give 1 feature
+            self.percentile = int(1 / num_features * 100)
+
+        return super().fit(X, y)
 
 
 class SelectFClassif(SelectPercentileBase):
@@ -98,6 +114,20 @@ class SelectChi2(SelectPercentileBase):
     def __init__(self, percentile):
         super().__init__(chi2, percentile=percentile)
 
+
+class SelectPercentileFromModel(SelectFromModel):
+
+    def __init__(self, estimator, percentile):
+        self.percentile = percentile
+        super().__init__(estimator=estimator, threshold=-np.inf)
+
+    def fit(self, X, y=None, **fit_params):
+        num_features = X.shape[1]
+
+        # How many features to select. Make sure we select atleast 1
+        self.max_features = max(1, int(num_features * (self.percentile / 100)))
+
+        return super().fit(X, y, **fit_params)
 
 # Selectors
 processors = {
@@ -122,10 +152,10 @@ processors = {
         'percentile': range(5, 101, 5)
     },
 
-    SelectFromModel: {
+    SelectPercentileFromModel: {
         'estimator': [DecisionTreeClassifier(), RandomForestClassifier(), ExtraTreesClassifier(),
                       LinearSVC(penalty="l1", dual=False), LogisticRegression(penalty="l1")],
-        'threshold': np.arange(0, 1.01, 0.05)
+        'percentile': range(5, 101, 5)
     }
 
 }

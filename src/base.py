@@ -63,13 +63,13 @@ class Base:
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset)
 
         # Between 1 layer and max depth high
-        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
+        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=5)
 
         # Crossover
         toolbox.register("mate", deapfix.repeated_crossover, existing=self.cache, toolbox=toolbox)
 
         # Mutation
-        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=3)
+        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=5)
         toolbox.register("mutate", deapfix.repeated_mutation, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
                          toolbox=toolbox)
 
@@ -178,14 +178,15 @@ class Base:
             # Average across the folds
             score = score.mean()
         except ValueError as e:
-            #raise e
-
             # TODO: Decide what to do in this case
             if self.verbose:
                 print("Error occured in eval", e, "setting f1 score to 0")
+                print("Tree was", tree_str)
             score = 0
         except XGBoostError as e:
-            print("Error with xgboost", e)
+            if self.verbose:
+                print("Error with xgboost", e)
+                print("Tree was", tree_str)
             score = 0
 
         complexity = self._calculate_complexity(tree_str)

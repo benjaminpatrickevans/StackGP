@@ -147,7 +147,7 @@ def add_terminal(pset, type_, requires_dummy=False):
     try:
         allowed_terminals = pset.terminals[type_]
 
-        if requires_dummy and str(type_) in ["SelectorMixin", "TransformerMixin"] :
+        if requires_dummy and str(type_) in ["FeatureProcessorType", "DataProcessorType"]:
             # For STGP, if we are supposed to stop early then we add dummy terminals.
             # otherwise the effective branch length wont match whats desired
             allowed_terminals = [term for term in allowed_terminals if str(term.name).startswith("Dummy")]
@@ -286,7 +286,6 @@ def repeated_crossover(ind1, ind2, existing, toolbox, max_tries=10):
         # Only break once both are unique
         if unique_offspring1 and unique_offspring2:
             break
-
 
     # If we didnt find a unique, then use the last (repeated) offspring generated
     unique_offspring1 = unique_offspring1 or offspring1
