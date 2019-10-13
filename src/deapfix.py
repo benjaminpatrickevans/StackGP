@@ -262,9 +262,6 @@ def _unique_parents(population):
         for breeder in unique_breeders:
             yield parent, breeder
 
-    # If we get to this stage, it means we couldnt find any unique breeders
-    yield random.choice(population), None
-
 
 def diverse_crossover(population, toolbox):
     """
@@ -286,7 +283,8 @@ def diverse_crossover(population, toolbox):
         if ind1:
             return ind1
 
-    # If we get here we couldnt find a unique breeder, need to mutate one instead
+    # If we get here we couldnt find a unique breeder, need to mutate one instead. TODO: Should we just mutate
+    # a hyperparameter here instead?
     return diverse_mutate(population, toolbox)
 
 
@@ -313,10 +311,15 @@ def diverse_mutate(population, toolbox):
 
     # At this stage we have tried the entire population and cant make a unique individual
     # This means the given search space has been entirely explored.
-    print("Couldnt generate a unique individual! Exhausted the entire search space")
+    print("Couldnt generate a unique individual from mutation!")
+
+    return random.choice(shuffled_pop)
+
+    # TODO: We could raise an exception at this point to stop the search early
     raise SearchExhaustedException("Search space exhausted")
 
-def uniqueMutUniform(individual, expr, pset, existing, toolbox):
+
+def uniqueMutUniform(individual, expr, pset, existing, toolbox, max_tries=10):
     """
     Extension of gp.mutUniform which tries to mutate individual
     to one which hasnt existed before
@@ -329,22 +332,22 @@ def uniqueMutUniform(individual, expr, pset, existing, toolbox):
     indices = list(range(len(individual)))
     random.shuffle(indices)
 
+    # For each possible node in the tree
     for index in indices:
         slice_ = individual.searchSubtree(index)
         type_ = individual[index].ret
 
-        ind = toolbox.clone(individual)
-        # TODO: We should try expr several times
-        ind[slice_] = expr(pset=pset, type_=type_)
+        # Try several times to generate a new unique branch
+        for i in range(max_tries):
+            ind = toolbox.clone(individual)
+            ind[slice_] = expr(pset=pset, type_=type_)
 
-        if str(ind) not in existing:
-            # Found a unique one, so return it
-            return ind, None
+            if str(ind) not in existing:
+                # Found a unique one, so return it
+                return ind, None
 
-    print("Mutate couldnt make unique individual")
-
-    # Couldn't make a unique individual, so just return the original individual
-    return individual, None
+    # Couldn't make a unique individual, so return None
+    return None, None
 
 
 def uniqueCxOnePoint(ind1, ind2, existing, toolbox):
