@@ -132,7 +132,7 @@ class Base:
 
         if verbose:
             print("Best model found:", pareto_front[0], "with fitness of", pareto_front[0].fitness)
-            print("Percentage of unique models", (len(self.cache) / (generations * self.pop_size)) * 100)
+            print("Percentage of unique models:", (len(self.cache) / (generations * self.pop_size)) * 100)
 
         # Use the model with the heighest fitness
         self.model = self._to_callable(pareto_front[0])
@@ -144,7 +144,7 @@ class Base:
         self.cache = {}
 
     def _print_pareto(self, pareto_front):
-            print([solution.fitness.values for solution in pareto_front])
+            print("Pareto front:", [solution.fitness.values for solution in pareto_front])
 
     def _calculate_complexity(self, tree_str):
         # Complexity measured by the number of voting nodes - TODO: one pass

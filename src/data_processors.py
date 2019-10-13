@@ -1,4 +1,5 @@
-from sklearn.preprocessing import Binarizer, MaxAbsScaler, MinMaxScaler, Normalizer, RobustScaler, StandardScaler
+from sklearn.preprocessing import Binarizer, MaxAbsScaler, MinMaxScaler, Normalizer, RobustScaler, StandardScaler,\
+    PolynomialFeatures
 from sklearn.decomposition import PCA
 from sklearn.base import TransformerMixin
 import numpy as np
@@ -57,4 +58,7 @@ processors = {
     StandardScaler: {
     },
 
+    PolynomialFeatures: {
+
+    },
 }

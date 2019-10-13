@@ -3,6 +3,7 @@ from sklearn import base
 import numpy as np
 from sklearn.externals import six
 from mlxtend.classifier import StackingCVClassifier
+from sklearn.linear_model import LogisticRegression
 
 # Sklearn has hardcoded limits for repr outputs which is obviously not desirable for recreating, so this needs to be
 # overriden without the limits
@@ -49,13 +50,13 @@ base._pprint = _pprint
 
 class StackingBaseClassifier(StackingCVClassifier):
 
-    def __init__(self, classifiers, meta_classifier, use_features):
-        super().__init__(classifiers=classifiers, meta_classifier=meta_classifier,
+    def __init__(self, classifiers, use_features):
+        super().__init__(classifiers=classifiers, meta_classifier=LogisticRegression(),
                          use_features_in_secondary=use_features)
 
     def __repr__(self):
-        return "StackingCVClassifier(classifiers=" + repr(self.classifiers) + ", meta_classifier="\
-               + repr(self.meta_classifier) + ", use_features_in_secondary=" + repr(self.use_features_in_secondary) + ")"
+        return "StackingCVClassifier(classifiers=" + repr(self.classifiers) + ", meta_classifier=LogisticRegression(),"\
+               +" use_features_in_secondary=" + repr(self.use_features_in_secondary) + ")"
 
     __str__ = __repr__
 

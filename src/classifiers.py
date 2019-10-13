@@ -112,14 +112,14 @@ def add_combiners(pset):
     pset.addEphemeralConstant("StackingFeatures", lambda: stackfeature_type(random.choice([True, False])),
                               stackfeature_type)
 
-    # Uses a meta level classifier to perform stacking, i.e., train the meta classifier on the predictions of the inputs
-    pset.addPrimitive(lambda meta, p1, p2, p3, use_features:
-                      StackingBaseClassifier([p1, p2, p3], meta_classifier=meta, use_features=use_features),
-                      [ClassifierType] * 4 + [stackfeature_type], ClassifierType, name="Stacking3")
+    # Uses logistic regression to perform stacking
+    pset.addPrimitive(lambda p1, p2, p3, use_features:
+                      StackingBaseClassifier([p1, p2, p3], use_features=use_features),
+                      [ClassifierType] * 3 + [stackfeature_type], ClassifierType, name="LRStacking3")
 
-    pset.addPrimitive(lambda meta, p1, p2, p3, p4, p5, use_features:
-                      StackingBaseClassifier([p1, p2, p3, p4, p5], meta_classifier=meta, use_features=use_features),
-                      [ClassifierType] * 6 + [stackfeature_type], ClassifierType, name="Stacking5")
+    pset.addPrimitive(lambda p1, p2, p3, p4, p5, use_features:
+                      StackingBaseClassifier([p1, p2, p3, p4, p5], use_features=use_features),
+                      [ClassifierType] * 5 + [stackfeature_type], ClassifierType, name="LRStacking5")
 
     # For recreation
     pset.context["StackingCVClassifier"] = StackingCVClassifier
