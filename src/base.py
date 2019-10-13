@@ -66,15 +66,15 @@ class Base:
         toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=5)
 
         # Crossover
-        toolbox.register("mate", deapfix.repeated_crossover, existing=self.cache, toolbox=toolbox)
+        toolbox.register("mate", deapfix.uniqueCxOnePoint, existing=self.cache, toolbox=toolbox)
 
         # Mutation
         toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=5)
-        toolbox.register("mutate", deapfix.repeated_mutation, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
+        toolbox.register("mutate", deapfix.uniqueMutUniform, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
                          toolbox=toolbox)
 
-        toolbox.decorate("mate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
-        toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
+        toolbox.decorate("mate", deapfix.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
+        toolbox.decorate("mutate", deapfix.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
 
         # Selection
         toolbox.register("select", tools.selNSGA2, nd="log")
