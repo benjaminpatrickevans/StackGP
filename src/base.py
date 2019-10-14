@@ -1,11 +1,10 @@
-from src import deapfix, search
+from src import deapfix, search, scorer
 import numpy as np
 from deap import base, creator, tools, gp
 import random
 import operator
 import time
 from math import inf
-from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from src.components import CustomPipeline
 from xgboost.core import XGBoostError
@@ -18,7 +17,7 @@ class Base:
         rather use a base class.
     """
 
-    def __init__(self, pop_size, max_run_time_mins, crs_rate, mut_rate, max_depth, n_jobs, verbose, random_state):
+    def __init__(self, pop_size, max_run_time_mins, max_eval_time_mins, crs_rate, mut_rate, max_depth, n_jobs, verbose, random_state):
 
         self.pop_size = pop_size
         self.crs_rate = crs_rate
@@ -29,6 +28,7 @@ class Base:
         self.random_state = random_state
 
         self.end_time = time.time() + (max_run_time_mins * 60)
+        self.max_eval_time_mins = max_eval_time_mins
 
         # For generating unique models
         self.cache = {}
@@ -105,12 +105,14 @@ class Base:
         return mstats
 
     def fit(self, data_x, data_y, verbose=1):
+        num_instances, num_features = data_x.shape
+
         # Set evolutionary seed since GP is stochastic (reproducability)
         random.seed(self.random_state)
         np.random.seed(self.random_state)
 
         # Defined by the subclass
-        self._add_components(self.pset)
+        self._add_components(self.pset, num_features)
 
         # Make it 1D
         data_y = data_y.values.reshape(-1,)
@@ -160,8 +162,10 @@ class Base:
         return self.model.predict(x)
 
     def _fitness_function(self, individual, x, y):
-        # Dont evaluate, we need to stop
-        if time.time() > self.end_time:
+        seconds_left = self.end_time - time.time()
+
+        # Dont evaluate, we need to stop as the time is up
+        if seconds_left <= 0:
             return -inf, inf
 
         tree_str = str(individual)
@@ -173,19 +177,15 @@ class Base:
         model = self._to_callable(individual)
 
         try:
-            # Crossfold validation
-            score = cross_val_score(model, x, y, cv=3, scoring=self.scorer, n_jobs=self.n_jobs)
-            # Average across the folds
-            score = score.mean()
-        except ValueError as e:
-            # TODO: Decide what to do in this case
+            # Time out if we pass the allowed amount of time.
+            allowed_time_seconds = int(min(seconds_left, self.max_eval_time_mins * 60))
+            print("Allowed time", allowed_time_seconds)
+            score = scorer.timed_cross_validation(model, x, y, self.scoring_fn, allowed_time_seconds,
+                                                  n_jobs=self.n_jobs, cv=3)
+        except Exception as e:
+            # This can occur if the individual model throws an exception, or if the function times out
             if self.verbose:
                 print("Error occured in eval", e, "setting f1 score to 0")
-                print("Tree was", tree_str)
-            score = 0
-        except XGBoostError as e:
-            if self.verbose:
-                print("Error with xgboost", e)
                 print("Tree was", tree_str)
             score = 0
 
