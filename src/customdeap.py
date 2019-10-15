@@ -301,7 +301,7 @@ def _get_children_indices(node, subtree):
 
 
 def mutate_choice(individual, pset, expr, toolbox, existing):
-    options = [mutShrink, mutNodeReplacement, mutUniform]
+    options = [mutShrink, mutNodeReplacement, mutUniform, mutInsert]
 
     # Try each method until a unique individual created
     for method in shuffled(options):
@@ -447,7 +447,7 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
     return None, None
 
 
-def mutInsert(individual, pset, expr, toolbox, existing, max_tries=10):
+def mutInsert(individual, pset, expr, toolbox, existing):
 
     iprims = [(idx, node) for idx, node in enumerate(individual)
                   if isinstance(node, gp.Primitive)]
