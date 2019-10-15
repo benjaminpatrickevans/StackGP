@@ -214,10 +214,8 @@ def _unique_parents(population):
     # Breedable trees are at least one node high
     breedable_trees = [ind for ind in population if ind.height > 1]
 
-    random.shuffle(breedable_trees)
-
     # See if we can find unique breeders in the population
-    for parent in breedable_trees:
+    for parent in shuffled(breedable_trees):
 
         # A unique breeder must be different after the root. If the root is the same, but the children
         # match then we cant create a unique child with crossover so we do not consider these unique breeders
@@ -254,6 +252,7 @@ def diverse_crossover(population, toolbox):
     return diverse_mutate(population, toolbox)
 
 
+
 def diverse_mutate(population, toolbox):
     """
         Mutates ind1 if it can create a unique individual (i.e. one that hasnt existed
@@ -265,9 +264,7 @@ def diverse_mutate(population, toolbox):
     :param population:
     :return:
     """
-    shuffled_pop = shuffled(population)
-
-    for individual in shuffled_pop:
+    for individual in shuffled(population):
         individual = toolbox.clone(individual)
         mutated_ind, _ = toolbox.mutate(individual)
 
@@ -279,7 +276,7 @@ def diverse_mutate(population, toolbox):
     # This means the given search space has been entirely explored.
     print("Couldnt generate a unique individual from mutation!")
 
-    return random.choice(shuffled_pop)
+    return random.choice(population)
 
     # TODO: We could raise an exception at this point to stop the search early
     raise SearchExhaustedException("Search space exhausted")
@@ -302,6 +299,52 @@ def _get_children_indices(node, subtree):
     return node_to_replace_child_indices
 
 
+def mutate_choice(individual, pset, expr, toolbox, existing):
+    method = random.choice([mutShrink, mutNodeReplacement, mutUniform])
+    return method(individual, pset, expr, toolbox, existing)
+
+
+def mutShrink(individual, pset, expr, toolbox, existing):
+    """This operator shrinks the *individual* by choosing a random voting node
+    and randomly replacing it with one of its children.
+
+    :param individual: The tree to be shrinked.
+    :returns: A tuple of one tree.
+    """
+    # Cant shrink a stump
+    if individual.height <= 1:
+        return None, None
+
+    iprims = []
+    for i, node in enumerate(individual[1:], 1):
+        # A shrinkable node is one which returns the same type as one of its children
+        if isinstance(node, gp.Primitive) and node.ret in node.args:
+            iprims.append((i, node))
+
+    # For each possible shrinkable primitive
+    for index, prim in shuffled(iprims):
+        # Find the children which could replace this node (i.e. have a child with same return type as prim)
+        replacement_children = [i for i, type_ in enumerate(prim.args) if type_ == prim.ret]
+
+        # For the possible children, check if shrinking them would make a unique tree
+        for child in shuffled(replacement_children):
+            rindex = index + 1
+            for _ in range(child + 1):
+                rslice = individual.searchSubtree(rindex)
+                subtree = individual[rslice]
+                rindex += len(subtree)
+
+            slice_ = individual.searchSubtree(index)
+            ind = toolbox.clone(individual)
+            ind[slice_] = subtree
+
+            if str(ind) not in existing:
+                return ind, None
+
+    # Couldnt generate a unique individual. Either no shrinkable primitives or the result had already existed
+    return None, None
+
+
 def mutNodeReplacement(individual, pset, expr, toolbox, existing):
     """Replaces a randomly chosen primitive from *individual* by a randomly
     chosen primitive with the same return type. Only the shared children
@@ -312,10 +355,9 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
     """
 
     indices = list(range(len(individual)))
-    random.shuffle(indices)
 
     # For each possible node in the tree
-    for index in indices:
+    for index in shuffled(indices):
         # See if we can mutate the node to create unique individual
         node_to_replace = individual[index]
         subtree_to_replace = gp.PrimitiveTree(individual[individual.searchSubtree(index)])
@@ -389,7 +431,7 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
     return None, None
 
 
-def uniqueMutUniform(individual, expr, pset, existing, toolbox, max_tries=10):
+def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
     """
     Extension of gp.mutUniform which tries to mutate individual
     to one which hasnt existed before
@@ -400,10 +442,9 @@ def uniqueMutUniform(individual, expr, pset, existing, toolbox, max_tries=10):
     :returns: A tuple of one tree.
     """
     indices = list(range(len(individual)))
-    random.shuffle(indices)
 
     # For each possible node in the tree
-    for index in indices:
+    for index in shuffled(indices):
         slice_ = individual.searchSubtree(index)
         type_ = individual[index].ret
 
@@ -452,11 +493,10 @@ def uniqueCxOnePoint(ind1, ind2, existing, toolbox):
 
     # Just to be safe, ensure its randomised so the loop below isnt biased to selecting a particular type
     common_types = list(common_types)
-    random.shuffle(common_types)
 
     # Try find a crossover point which generates a tree which is different from its parents
     # Check all crossover points and exit if we find one
-    for type_ in common_types:
+    for type_ in shuffled(common_types):
         ind1_nodes = shuffled(types1[type_])
         ind2_nodes = shuffled(types2[type_])
 

@@ -62,17 +62,14 @@ class Base:
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset)
 
         # Between 1 layer and max depth high
-        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=5)
+        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
 
         # Crossover
         toolbox.register("mate", deapfix.uniqueCxOnePoint, existing=self.cache, toolbox=toolbox)
 
         # Mutation
-        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=5)
-        #toolbox.register("mutate", deapfix.uniqueMutUniform, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
-        #                 toolbox=toolbox)
-
-        toolbox.register("mutate", deapfix.mutNodeReplacement, pset=self.pset, expr=toolbox.expr_mut,
+        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=3)
+        toolbox.register("mutate", deapfix.mutate_choice, pset=self.pset, expr=toolbox.expr_mut,
                          existing=self.cache, toolbox=toolbox)
 
         toolbox.decorate("mate", deapfix.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
