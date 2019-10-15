@@ -447,6 +447,53 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
     return None, None
 
 
+def mutInsert(individual, pset, expr, toolbox, existing, max_tries=10):
+
+    iprims = [(idx, node) for idx, node in enumerate(individual)
+                  if isinstance(node, gp.Primitive)]
+
+    # Search for nodes that can be extended/grown
+    for i, node in shuffled(iprims):
+            return_type = node.ret
+
+            # A growable node is defined as a node with return type T for which another
+            # node exists that has T as both an input and as an output
+            replacement_node_types = [prim for prim in pset.primitives[return_type] if return_type in prim.args]
+
+            original_subtree_slice_ = individual.searchSubtree(i)
+            original_subtree = individual[original_subtree_slice_]
+
+            # If this is a growable node, try and grow it
+            for replacement_node_type in shuffled(replacement_node_types):
+
+                # Make a new tree which returns the type of the replacement node
+                replacement_tree = [replacement_node_type]
+
+                # A flag to know if we have added the original subtree to our replacement tree yet
+                inserted_original_subtree = False
+
+                # Fill the children of this new replacement node
+                for child_type in replacement_node_type.args:
+                    # This is when we insert the original subtree
+                    if not inserted_original_subtree and child_type == return_type:
+                        replacement_tree.extend(original_subtree)
+                        inserted_original_subtree = True
+                    else:
+                        # Generate the missing children
+                        new_subtree = expr(pset=pset, type_=child_type)
+                        replacement_tree.extend(new_subtree)
+
+                # Place the generated subtree into the original individual
+                ind = toolbox.clone(individual)
+                ind[original_subtree_slice_] = replacement_tree
+
+                # If the resulting tree was unique then we are done
+                if str(ind) not in existing:
+                    return ind, None
+
+    return None, None
+
+
 def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
     """
     Extension of gp.mutUniform which tries to mutate individual
@@ -491,7 +538,7 @@ def uniqueCxOnePoint(ind1, ind2, existing, toolbox):
     """
     if len(ind1) < 2 or len(ind2) < 2:
         # No crossover on single node tree
-        return ind1, ind2
+        return None, None
 
     # List all available primitive types in each individual
     types1 = gp.defaultdict(list)
@@ -503,24 +550,15 @@ def uniqueCxOnePoint(ind1, ind2, existing, toolbox):
         types2[node.ret].append(idx)
     common_types = set(types1.keys()).intersection(set(types2.keys()))
 
-    # Cant crossover if no shared node types
-    if not common_types:
-        return ind1, None
-
-    # Just to be safe, ensure its randomised so the loop below isnt biased to selecting a particular type
-    common_types = list(common_types)
-
     # Try find a crossover point which generates a tree which is different from its parents
     # Check all crossover points and exit if we find one
-    for type_ in shuffled(common_types):
-        ind1_nodes = shuffled(types1[type_])
-        ind2_nodes = shuffled(types2[type_])
-
-        for node1 in ind1_nodes:
-
+    for type_ in shuffled(list(common_types)):
+        # Parent one loop
+        for node1 in shuffled(types1[type_]):
             slice1 = ind1.searchSubtree(node1)
 
-            for node2 in ind2_nodes:
+            # Parent two loop
+            for node2 in shuffled(types2[type_]):
                 slice2 = ind2.searchSubtree(node2)
 
                 newind1 = toolbox.clone(ind1)
@@ -532,11 +570,10 @@ def uniqueCxOnePoint(ind1, ind2, existing, toolbox):
                 newind2_str = str(newind2)
 
                 # If the generated individual is different to its parent and never existed in a previous generation
-                # TODO: Do we need the first check?
-                if newind1_str != str(ind1) and newind1_str not in existing:
+                if newind1_str not in existing:
                     return newind1, newind2
 
-                if newind2_str != str(ind2) and newind2_str not in existing:
+                if newind2_str not in existing:
                     return newind2, newind1
 
     # If we get to this point we havent found any suitable crossover points

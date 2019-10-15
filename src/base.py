@@ -69,7 +69,10 @@ class Base:
 
         # Mutation
         toolbox.register("expr_mut", customdeap.genHalfAndHalf, min_=0, max_=3)
-        toolbox.register("mutate", customdeap.mutate_choice, pset=self.pset, expr=toolbox.expr_mut,
+        #toolbox.register("mutate", customdeap.mutate_choice, pset=self.pset, expr=toolbox.expr_mut,
+        #                 existing=self.cache, toolbox=toolbox)
+
+        toolbox.register("mutate", customdeap.mutInsert, pset=self.pset, expr=toolbox.expr_mut,
                          existing=self.cache, toolbox=toolbox)
 
         toolbox.decorate("mate", customdeap.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
