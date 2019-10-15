@@ -524,7 +524,46 @@ def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
     return None, None
 
 
-def uniqueCxOnePoint(ind1, ind2, existing, toolbox):
+def _get_best(ind1, ind2):
+    # Choose the ind with the highest fitness. Break ties by selecting one with lowest complexity
+    if ind1.fitness.values[0] == ind2.fitness.values[0]:
+        # Tie. Choose lowest complexity
+        if ind1.fitness.values[1] <= ind2.fitness.values[1]:
+            return ind1
+        else:
+            return ind2
+    elif ind1.fitness.values[0] > ind2.fitness.values[0]:
+        return ind1
+    else:
+        return ind2
+
+
+def cxMutateBest(ind1, ind2, toolbox, max_tries=10):
+    """
+      Based on the mutation used in Google architecture search: https://arxiv.org/abs/1703.01041.
+
+      Choose the better of the two parents, and mutate it. This behaves more like mutation
+      but is treated as crossover since there are 2 parents.
+
+    :param ind1:
+    :param ind2:
+    :param toolbox:
+    :return:
+    """
+    # Choose the ind with the highest fitness. Break ties by selecting one with lowest complexity
+    best = _get_best(ind1, ind2)
+
+    for _ in range(max_tries):
+        individual = toolbox.clone(best)
+        mutated_ind, _ = toolbox.mutate(individual)
+
+        if mutated_ind:
+            return mutated_ind, None
+
+    return None, None
+    
+
+def cxOnePoint(ind1, ind2, existing, toolbox):
     """Randomly select in each individual and exchange each subtree with the
     point as root between each individual. Tries to ensure a unique crossover,
     i.e. attempts to generate a child which hasnt existed before.
@@ -539,6 +578,7 @@ def uniqueCxOnePoint(ind1, ind2, existing, toolbox):
     if len(ind1) < 2 or len(ind2) < 2:
         # No crossover on single node tree
         return None, None
+
 
     # List all available primitive types in each individual
     types1 = gp.defaultdict(list)

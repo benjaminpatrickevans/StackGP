@@ -65,7 +65,8 @@ class Base:
         toolbox.register("expr", customdeap.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
 
         # Crossover
-        toolbox.register("mate", customdeap.uniqueCxOnePoint, existing=self.cache, toolbox=toolbox)
+        #toolbox.register("mate", customdeap.cxOnePoint, existing=self.cache, toolbox=toolbox)
+        toolbox.register("mate", customdeap.cxMutateBest, toolbox=toolbox)
 
         # Mutation
         toolbox.register("expr_mut", customdeap.genHalfAndHalf, min_=0, max_=3)
