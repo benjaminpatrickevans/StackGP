@@ -1,4 +1,4 @@
-from src import deapfix, search, scorer, viz
+from src import customdeap, search, scorer, viz
 import numpy as np
 from deap import base, creator, tools, gp
 import random
@@ -62,18 +62,18 @@ class Base:
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset)
 
         # Between 1 layer and max depth high
-        toolbox.register("expr", deapfix.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
+        toolbox.register("expr", customdeap.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
 
         # Crossover
-        toolbox.register("mate", deapfix.uniqueCxOnePoint, existing=self.cache, toolbox=toolbox)
+        toolbox.register("mate", customdeap.uniqueCxOnePoint, existing=self.cache, toolbox=toolbox)
 
         # Mutation
-        toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=3)
-        toolbox.register("mutate", deapfix.mutate_choice, pset=self.pset, expr=toolbox.expr_mut,
+        toolbox.register("expr_mut", customdeap.genHalfAndHalf, min_=0, max_=3)
+        toolbox.register("mutate", customdeap.mutate_choice, pset=self.pset, expr=toolbox.expr_mut,
                          existing=self.cache, toolbox=toolbox)
 
-        toolbox.decorate("mate", deapfix.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
-        toolbox.decorate("mutate", deapfix.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
+        toolbox.decorate("mate", customdeap.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
+        toolbox.decorate("mutate", customdeap.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
 
         # Selection
         toolbox.register("select", tools.selNSGA2, nd="log")

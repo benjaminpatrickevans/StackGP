@@ -1,7 +1,7 @@
 from deap import tools
-from src import deapfix
+from src import customdeap
 import time
-from src.deapfix import SearchExhaustedException
+from src.customdeap import SearchExhaustedException
 
 def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
                         stats=None, halloffame=None, verbose=__debug__):
@@ -43,7 +43,7 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
 
         try:
             # Vary the population for next generation
-            offspring = deapfix.varOr(population, toolbox, lambda_, cxpb, mutpb)
+            offspring = customdeap.varOr(population, toolbox, lambda_, cxpb, mutpb)
         except SearchExhaustedException:
             print("Search finished, exiting early")
             # If this happens we have exhausted our search space

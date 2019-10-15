@@ -3,6 +3,7 @@ import sys
 from inspect import isclass
 from deap import gp
 from collections import defaultdict
+from copy import copy
 
 class SearchExhaustedException(Exception):
     pass
@@ -300,8 +301,18 @@ def _get_children_indices(node, subtree):
 
 
 def mutate_choice(individual, pset, expr, toolbox, existing):
-    method = random.choice([mutShrink, mutNodeReplacement, mutUniform])
-    return method(individual, pset, expr, toolbox, existing)
+    options = [mutShrink, mutNodeReplacement, mutUniform]
+
+    # Try each method until a unique individual created
+    for method in shuffled(options):
+        ind, _ = method(individual, pset, expr, toolbox, existing)
+
+        # If a unique individual was returned
+        if ind:
+            return ind, None
+
+    # At this point we couldnt create a unique individual, so return None
+    return None, None
 
 
 def mutShrink(individual, pset, expr, toolbox, existing):
@@ -367,15 +378,16 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
             replacements = [node for node in pset.terminals[node_to_replace.ret]
                             if node.name != node_to_replace.name]
 
-            term = random.choice(replacements)
-            if isclass(term):
-                term = term()
+            # See if any of the replacements will generate a unique tree
+            for term in shuffled(replacements):
+                if isclass(term):
+                    term = term()
 
-            ind = toolbox.clone(individual)
-            ind[index] = term
+                ind = toolbox.clone(individual)
+                ind[index] = term
 
-            if str(ind) not in existing:
-                return ind, None
+                if str(ind) not in existing:
+                    return ind, None
 
         else:   # Primitive
             # If the node has children, then we will swap the common children and generate new children for whats missing
@@ -396,37 +408,41 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
 
             node_to_replace_child_indices = _get_children_indices(node_to_replace, subtree_to_replace)
 
-            replacement_node = random.choice(prims)
+            # See if any of the replacement nodes will generate a unique tree
+            for replacement_node in shuffled(prims):
+                # Make a copy of the child indices since we modify this as we iterate
+                node_to_replace_children = copy(node_to_replace_child_indices)
 
-            # We will build this tree up in the order a depth-first search would return
-            replacement_tree = [replacement_node]
+                # We will build this tree up in the order a depth-first search would return
+                replacement_tree = [replacement_node]
 
-            # Now lets create the tree by replacing children or constructing new ones if they didnt exist
-            for child_type in replacement_node.args:
-                # Retrieve the child to copy, or return None if there wasnt one
-                child_idx = next(iter(node_to_replace_child_indices[child_type]), None)
+                # Now lets create the tree by replacing children or constructing new ones if they didnt exist
+                for child_type in replacement_node.args:
+                    # Retrieve the child to copy, or return None if there wasnt one
+                    child_idx = next(iter(node_to_replace_children[child_type]), None)
 
-                # If we found the child in original tree
-                if child_idx:
-                    # Then use the original child in the new replacement tree
-                    slice_ = subtree_to_replace.searchSubtree(child_idx)
-                    child_subtree = subtree_to_replace[slice_]
-                    replacement_tree.extend(child_subtree)
+                    # If we found the child in original tree
+                    if child_idx:
+                        # Then use the original child in the new replacement tree
+                        slice_ = subtree_to_replace.searchSubtree(child_idx)
+                        child_subtree = subtree_to_replace[slice_]
+                        replacement_tree.extend(child_subtree)
 
-                    # We've now used this child so we shouldnt be able to select it again
-                    node_to_replace_child_indices[child_type].remove(child_idx)
-                else:
-                    # Otherwise make a new child
-                    new_subtree = expr(pset=pset, type_=child_type)
-                    replacement_tree.extend(new_subtree)
+                        # We've now used this child so we shouldnt be able to select it again
+                        node_to_replace_children[child_type].remove(child_idx)
+                    else:
+                        # Otherwise make a new child
+                        new_subtree = expr(pset=pset, type_=child_type)
+                        replacement_tree.extend(new_subtree)
 
-            # Place the generated subtree into the original individual
-            slice_ = individual.searchSubtree(index)
-            ind = toolbox.clone(individual)
-            ind[slice_] = replacement_tree
+                # Place the generated subtree into the original individual
+                slice_ = individual.searchSubtree(index)
+                ind = toolbox.clone(individual)
+                ind[slice_] = replacement_tree
 
-            if str(ind) not in existing:
-                return ind, None
+                # If the resulting tree was unique then we are done
+                if str(ind) not in existing:
+                    return ind, None
 
     return None, None
 
