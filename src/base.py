@@ -69,8 +69,11 @@ class Base:
 
         # Mutation
         toolbox.register("expr_mut", deapfix.genHalfAndHalf, min_=0, max_=5)
-        toolbox.register("mutate", deapfix.uniqueMutUniform, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
-                         toolbox=toolbox)
+        #toolbox.register("mutate", deapfix.uniqueMutUniform, expr=toolbox.expr_mut, pset=self.pset, existing=self.cache,
+        #                 toolbox=toolbox)
+
+        toolbox.register("mutate", deapfix.mutNodeReplacement, pset=self.pset, expr=toolbox.expr_mut,
+                         existing=self.cache, toolbox=toolbox)
 
         toolbox.decorate("mate", deapfix.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
         toolbox.decorate("mutate", deapfix.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))

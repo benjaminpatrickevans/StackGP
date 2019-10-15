@@ -2,6 +2,7 @@ import random
 import sys
 from inspect import isclass
 from deap import gp
+from collections import defaultdict
 
 class SearchExhaustedException(Exception):
     pass
@@ -282,6 +283,117 @@ def diverse_mutate(population, toolbox):
 
     # TODO: We could raise an exception at this point to stop the search early
     raise SearchExhaustedException("Search space exhausted")
+
+
+def _get_children_indices(node, subtree):
+
+    node_to_replace_children = node.args
+
+    # Keep track of the children we've already replaced so we dont duplicate branches
+    child_idx = 1  # First child is at index 1 of the tree
+    node_to_replace_child_indices = defaultdict(list)  # Map from child_type -> [indices]
+    node_to_replace_num_children = len(node_to_replace_children)
+
+    # Get the indices of all the children in the original subtree
+    for i in range(node_to_replace_num_children):
+        child_type = node_to_replace_children[i]
+
+        # Slice_ will be slice(child subtree root index, child subtree final node)
+        slice_ = subtree.searchSubtree(child_idx)
+        node_to_replace_child_indices[child_type].append(child_idx)
+
+        # Next child is after this childs subtree
+        child_idx += slice_.stop - 1
+
+    return node_to_replace_child_indices
+
+
+def mutNodeReplacement(individual, pset, expr, toolbox, existing):
+    """Replaces a randomly chosen primitive from *individual* by a randomly
+    chosen primitive with the same return type. Only the shared children
+    types are transferred.
+
+    :param individual: The normal or typed tree to be mutated.
+    :returns: A tuple of one tree.
+    """
+
+    indices = list(range(len(individual)))
+    random.shuffle(indices)
+
+    # For each possible node in the tree
+    for index in indices:
+
+        # See if we can mutate the node to create unique individual
+        node_to_replace = individual[index]
+        subtree_to_replace = gp.PrimitiveTree(individual[individual.searchSubtree(index)])
+
+        if node_to_replace.arity == 0:  # Terminal
+            # For a terminal theres no children so we can just do a straight replacement
+            replacements = [node for node in pset.terminals[node_to_replace.ret]
+                            if node.name != node_to_replace.name]
+
+            term = random.choice(replacements)
+            if isclass(term):
+                term = term()
+
+            ind = toolbox.clone(individual)
+            ind[index] = term
+
+            if str(ind) not in existing:
+                return ind, None
+
+        else:   # Primitive
+            # If the node has children, then we will swap the common children and generate new children for whats missing
+            node_to_replace_children_types = set(node_to_replace.args)
+
+            # For a primitive to replace this one, it must have a shared child type
+            prims = [p for p in pset.primitives[node_to_replace.ret]
+                     if node_to_replace_children_types.intersection(p.args) and p.name != node_to_replace.name]
+
+            if not prims:
+                # If this happens, then there where no shared children. So lets just get
+                # any node and we will have to generate all the children instead. This
+                # only happens if we are at the bottom of a pipeline (a data processor)
+                # and that data processor has hyperparameters set. In this case we will just swap
+                # out the processor for another and generate new hyperparameters.
+                # TODO: We should be able to select from terminals here too
+                prims = [p for p in pset.primitives[node_to_replace.ret] if p.name != node_to_replace.name]
+
+            node_to_replace_child_indices = _get_children_indices(node_to_replace, subtree_to_replace)
+
+            replacement_node = random.choice(prims)
+
+            # We will build this tree up in the order a depth-first search would return
+            replacement_tree = [replacement_node]
+
+            # Now lets create the tree by replacing children or constructing new ones if they didnt exist
+            for child_type in replacement_node.args:
+                # Retrieve the child to copy, or return None if there wasnt one
+                child_idx = next(iter(node_to_replace_child_indices[child_type]), None)
+
+                # If we found the child in original tree
+                if child_idx:
+                    # Then use the original child in the new replacement tree
+                    slice_ = subtree_to_replace.searchSubtree(child_idx)
+                    child_subtree = subtree_to_replace[slice_]
+                    replacement_tree.extend(child_subtree)
+
+                    # We've now used this child so we shouldnt be able to select it again
+                    node_to_replace_child_indices[child_type].remove(child_idx)
+                else:
+                    # Otherwise make a new child
+                    new_subtree = expr(pset=pset, type_=child_type)
+                    replacement_tree.extend(new_subtree)
+
+            # Place the generated subtree into the original individual
+            slice_ = individual.searchSubtree(index)
+            ind = toolbox.clone(individual)
+            ind[slice_] = replacement_tree
+
+            if str(ind) not in existing:
+                return ind, None
+
+    return None, None
 
 
 def uniqueMutUniform(individual, expr, pset, existing, toolbox, max_tries=10):
