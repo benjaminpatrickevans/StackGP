@@ -1,4 +1,4 @@
-from src import deapfix, search, scorer
+from src import deapfix, search, scorer, viz
 import numpy as np
 from deap import base, creator, tools, gp
 import random
@@ -7,7 +7,6 @@ import time
 from math import inf
 from sklearn.pipeline import Pipeline
 from src.components import CustomPipeline
-from xgboost.core import XGBoostError
 
 class Base:
     """
@@ -27,7 +26,7 @@ class Base:
         self.verbose = verbose
         self.random_state = random_state
 
-        self.end_time = time.time() + (max_run_time_mins * 60)
+        self.max_run_time_mins = max_run_time_mins
         self.max_eval_time_mins = max_eval_time_mins
 
         # For generating unique models
@@ -36,7 +35,7 @@ class Base:
         self.pset = self.create_pset()
         self.toolbox = self.create_toolbox()
 
-        self.model = None
+        self.callable_model = None
         self.imputer = None
         self.one_hot_encoding = None
 
@@ -105,6 +104,9 @@ class Base:
         return mstats
 
     def fit(self, data_x, data_y, verbose=1):
+        # How long can we run fit for
+        self.end_time = time.time() + (self.max_run_time_mins * 60)
+
         num_instances, num_features = data_x.shape
 
         # Set evolutionary seed since GP is stochastic (reproducability)
@@ -114,7 +116,7 @@ class Base:
         # Defined by the subclass
         self._add_components(self.pset, num_features)
 
-        # Make it 1D
+        # Make the y labels 1D
         data_y = data_y.values.reshape(-1,)
 
         # Register the fitness function, pass1ing in our training data for evaluation
@@ -127,7 +129,7 @@ class Base:
         similarity = lambda ind1, ind2: np.allclose(ind1.fitness.values, ind2.fitness.values)
         pareto_front = tools.ParetoFront(similar=similarity)
 
-        pop, logbook, generations = search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
+        pop, self.logbook, generations = search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
                                    lambda_=self.pop_size, cxpb=self.crs_rate,
                                    mutpb=self.mut_rate,
                                    end_time=self.end_time, stats=stats, halloffame=pareto_front)
@@ -137,8 +139,9 @@ class Base:
             print("Percentage of unique models:", (len(self.cache) / (generations * self.pop_size)) * 100)
 
         # Use the model with the heighest fitness
-        self.model = self._to_callable(pareto_front[0])
-        self.model.fit(data_x, data_y)
+        self.model = pareto_front[0]
+        self.callable_model = self._to_callable(pareto_front[0])
+        self.callable_model.fit(data_x, data_y)
 
         self._print_pareto(pareto_front)
 
@@ -156,10 +159,10 @@ class Base:
         return complexity
 
     def predict(self, x):
-        if self.model is None:
+        if self.callable_model is None:
             raise Exception("Must call fit before predict")
 
-        return self.model.predict(x)
+        return self.callable_model.predict(x)
 
     def _fitness_function(self, individual, x, y):
         seconds_left = self.end_time - time.time()
@@ -179,7 +182,6 @@ class Base:
         try:
             # Time out if we pass the allowed amount of time.
             allowed_time_seconds = int(min(seconds_left, self.max_eval_time_mins * 60))
-            print("Allowed time", allowed_time_seconds)
             score = scorer.timed_cross_validation(model, x, y, self.scoring_fn, allowed_time_seconds,
                                                   n_jobs=self.n_jobs, cv=3)
         except Exception as e:
@@ -203,3 +205,12 @@ class Base:
         # Currently need to do 2 evals. TODO: Reduce this to one
         init = self.toolbox.compile(expr=individual)
         return eval(str(init), self.pset.context, {})
+
+    def plot(self, file_name):
+        viz.plot_tree(self.model, file_name)
+
+    def get_generation_information(self):
+        fit_mins = self.logbook.chapters["fitness"].select("max")
+        size_avgs = self.logbook.chapters["complexity"].select("mean")
+
+        return {"fitness": fit_mins, "complexity": size_avgs}

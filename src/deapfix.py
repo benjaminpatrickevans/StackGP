@@ -180,48 +180,13 @@ def _subtree_str(tree, starting_idx):
     return str(subtree)
 
 
-def _unique_parents_old(population):
-    """ Return two unique individuals from
-    population if they exist, if not
-    return a random individual and None
-
-    :param population:
-    :return: (ind1, ind2) where ind2 is None if no breedable parents found
-    """
-    # Breedable trees are at least one node high
-    breedable_trees = [ind for ind in population if ind.height > 1]
-
-    # If theres no breedable trees, then there's no point trying to crossover
-    if not breedable_trees:
-        return random.choice(population), None
-
-    # At this stage there must be atleast one breadable tree
-    parent_one = random.choice(breedable_trees)
-
-    # See if we can find a unique breeder. Note: we didnt check breedable_trees size >= 2, because
-    # we could have duplicate individuals which we do not want to breed!
-
-    # A unique breeder must be different after the root. If the root is the same, but the children
-    # match then we cant create a unique child with crossover so we do not consider these unique breeders
-    parent_below_root = _subtree_str(parent_one, starting_idx=1)
-    unique_breeders = [ind for ind in breedable_trees
-                       if _subtree_str(ind, starting_idx=1) != parent_below_root]
-
-    # If we cant breed, just return a random from the entire population
-    if not unique_breeders:
-        return random.choice(population), None
-
-    # If we get to this point, it means we found two unique breeders
-    return parent_one, random.choice(unique_breeders)
-
-
 def varOr(population, toolbox, lambda_, cxpb, mutpb):
     """
-    This is a variation the varOr function provided by deap
-    (in algorithms.py).
+    This is a variation on the deap.algorithms.varOr function.
 
-    The difference is this tries to select 2 unique individuals
-    when crossing over.
+    The difference is this tries to promotove diversity
+    by selecting individuals for corssover which generate a unique offspring,
+    and by selecting an individual which when mutated creates a unique individual.
     """
     assert (cxpb + mutpb) <= 1.0, (
         "The sum of the crossover and mutation probabilities must be smaller "
@@ -433,7 +398,7 @@ def safeStaticLimit(key, max_value):
             keep_inds = [gp.copy.deepcopy(ind) for ind in args]
             new_inds = list(func(*args, **kwargs))
             for i, ind in enumerate(new_inds):
-                # All that was changed is the condition below to include a truthy check
+                # All that was changed is the condition below to include a truthy check on ind
                 if ind and key(ind) > max_value:
                     new_inds[i] = random.choice(keep_inds)
             return new_inds

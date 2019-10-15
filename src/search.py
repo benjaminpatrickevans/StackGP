@@ -15,7 +15,7 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
-    offspring = population
+    offspring = population[:]
     gen = 0
 
     while time.time() < end_time:
