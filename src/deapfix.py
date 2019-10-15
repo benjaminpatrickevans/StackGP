@@ -286,24 +286,18 @@ def diverse_mutate(population, toolbox):
 
 
 def _get_children_indices(node, subtree):
-
-    node_to_replace_children = node.args
-
     # Keep track of the children we've already replaced so we dont duplicate branches
     child_idx = 1  # First child is at index 1 of the tree
     node_to_replace_child_indices = defaultdict(list)  # Map from child_type -> [indices]
-    node_to_replace_num_children = len(node_to_replace_children)
 
     # Get the indices of all the children in the original subtree
-    for i in range(node_to_replace_num_children):
-        child_type = node_to_replace_children[i]
-
+    for child_type in node.args:
         # Slice_ will be slice(child subtree root index, child subtree final node)
         slice_ = subtree.searchSubtree(child_idx)
         node_to_replace_child_indices[child_type].append(child_idx)
 
         # Next child is after this childs subtree
-        child_idx += slice_.stop - 1
+        child_idx = slice_.stop
 
     return node_to_replace_child_indices
 
@@ -322,7 +316,6 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
 
     # For each possible node in the tree
     for index in indices:
-
         # See if we can mutate the node to create unique individual
         node_to_replace = individual[index]
         subtree_to_replace = gp.PrimitiveTree(individual[individual.searchSubtree(index)])
