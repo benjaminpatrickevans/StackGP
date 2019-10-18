@@ -105,7 +105,8 @@ def add_combiners(pset):
     # It basically just acts as a wrapper around boolean, but since we cant make a subclass of bool we must do some
     # work to "wrap" the true/false values into a new specialised type.
     stackfeature_type = type("StackingFeatureType", (), {'name': "StackingFeatureType", '__init__': types.param_init,
-                                                          '__str__': types.param_str, '__repr__': types.param_str})
+                                                          '__str__': types.param_str, '__repr__': types.param_str,
+                                                         'range': [True, False]})
     pset.context["StackingFeatureType"] = stackfeature_type
 
     # Whether or not to use the original features alongside the predictions in the meta classifier

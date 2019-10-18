@@ -4,6 +4,8 @@ types for STGP.
 '''
 def param_init(self, val):
     self.val = val
+    # Flag for optimising
+    self.hyper_parameter = True
 
 
 def param_str(self):

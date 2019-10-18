@@ -538,7 +538,12 @@ def _get_best(ind1, ind2):
         return ind2
 
 
-def cxMutateBest(ind1, ind2, toolbox, max_tries=10):
+def mate_choice(ind1, ind2, existing, toolbox):
+    method = random.choice([cxOnePoint, cxMutateBest])
+    return method(ind1, ind2, existing, toolbox)
+
+
+def cxMutateBest(ind1, ind2, existing, toolbox, max_tries=10):
     """
       Based on the mutation used in Google architecture search: https://arxiv.org/abs/1703.01041.
 

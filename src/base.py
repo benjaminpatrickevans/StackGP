@@ -66,7 +66,8 @@ class Base:
 
         # Crossover
         #toolbox.register("mate", customdeap.cxOnePoint, existing=self.cache, toolbox=toolbox)
-        toolbox.register("mate", customdeap.cxMutateBest, toolbox=toolbox)
+        #toolbox.register("mate", customdeap.cxMutateBest, toolbox=toolbox)
+        toolbox.register("mate", customdeap.mate_choice, existing=self.cache, toolbox=toolbox)
 
         # Mutation
         toolbox.register("expr_mut", customdeap.genHalfAndHalf, min_=0, max_=3)
@@ -130,10 +131,10 @@ class Base:
         similarity = lambda ind1, ind2: np.allclose(ind1.fitness.values, ind2.fitness.values)
         pareto_front = tools.ParetoFront(similar=similarity)
 
-        pop, self.logbook, generations = search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size,
-                                   lambda_=self.pop_size, cxpb=self.crs_rate,
-                                   mutpb=self.mut_rate,
-                                   end_time=self.end_time, stats=stats, halloffame=pareto_front)
+        pop, self.logbook, generations =\
+            search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size, lambda_=self.pop_size,
+                                       cxpb=self.crs_rate, mutpb=self.mut_rate,
+                                       end_time=self.end_time, pset=self.pset, stats=stats, halloffame=pareto_front)
 
         if verbose:
             print("Best model found:", pareto_front[0], "with fitness of", pareto_front[0].fitness)

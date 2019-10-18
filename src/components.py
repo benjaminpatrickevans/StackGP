@@ -65,7 +65,7 @@ def add_components(pset, components, component_type, prev_step_type):
             value_range = estimator_params[param]
 
             param_type = type(param, (), {'name': param, '__init__': types.param_init, '__str__': types.param_str,
-                                '__repr__': types.param_str})
+                                '__repr__': types.param_str, "range": value_range})
 
             _add_hyperparameter(pset, param_name, param_type, value_range)
 
