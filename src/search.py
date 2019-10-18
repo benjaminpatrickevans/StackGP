@@ -89,30 +89,61 @@ def objective_function(tree, valid_x, valid_y, toolbox, hyperparameter_indices, 
     # Hyperopt minimises
     return -f1
 
-def _determine_sampling_type(node_values):
-    return hp.choice
+def _create_sampler(label, node):
+    """
+        Returns a sampler and default value based on the values specified in node.
+        String -> hp.choice,
+        Int -> hp.quniform,
+        float -> hp.loguniform
+    :param label:
+    :param node:
+    :return:
+    """
+    # The list of allowable values
+    node_values = node.range
+
+    # The value already set by GP
+    default = node.val
+
+    types = set(type(value) for value in node_values)
+
+    if len(types) == 1:
+        value_type = next(iter(types))
+
+        if value_type == int:
+            # Sample uniformly between the integers. Smooth function.
+            return hp.quniform(label, low=min(node_values), high=max(node_values), q=1), default
+        elif value_type == float:
+            # We want to sample from log distribution due to the differing of scales, otherwise we will
+            # do more exploration in larger regions. Note: we take the log when specifyig
+            # low and high too, because the given scale is already as logs and this will raise to e when passed in
+            safe_min = min(node_values)
+            if safe_min == 0:
+                # Avoid taking log of 0
+                safe_min = 0.00001
+            return hp.loguniform(label, low=np.log(safe_min), high=np.log(max(node_values))), default
+
+    # Default case is to just use hp_choice. At this point we assume its a categorical or mixture of value types
+    # and thus not smooth or continuous.  Note: When using hp_choice we need to return the index of the default value
+    # rather than the default value itself as well
+    return hp.choice(label, node_values), node_values.index(default)
 
 def get_hyperparameters_from_tree(tree):
     hyperparameters = []
     hyperparameter_indices = []
     defaults = {}
 
+    # Find the tunable hyperparameters in the tree.
     for idx, node in enumerate(tree):
         if isinstance(node, gp.Terminal) and hasattr(node.value, "hyper_parameter"):
-            hyperparameter_name = str(idx)
 
-            node_values = node.value.range
-            sampler = _determine_sampling_type(node_values)
-            hyperparameters.append(sampler(str(idx), node_values))
-            hyperparameter_indices.append(idx)
+            # Cant optimise if theres only one option
+            if len(node.value.range) > 1:
+                sampler, default = _create_sampler(str(idx), node.value)
 
-            default = node.value.val
-
-            # Weird behaviours with hyeropt which expects choice to take an index, not the value
-            if sampler.__name__ == "hp_choice":
-                default = node_values.index(default)
-
-            defaults[str(idx)] = default
+                hyperparameters.append(sampler)
+                hyperparameter_indices.append(idx)
+                defaults[str(idx)] = default
 
     return hyperparameters, hyperparameter_indices, defaults
 
