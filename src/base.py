@@ -6,6 +6,7 @@ import operator
 import time
 from math import inf
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
 from src.components import CustomPipeline
 
 class Base:
@@ -87,7 +88,7 @@ class Base:
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
         # Use the standard deap method of compiling an individual
-        toolbox.register("compile", gp.compile, pset=self.pset)
+        toolbox.register("compile", self.compile, pset=self.pset)
 
         return toolbox
 
@@ -121,8 +122,14 @@ class Base:
         # Make the y labels 1D
         data_y = data_y.values.reshape(-1,)
 
+
+        # An internal train/validation set. Validation set used for bayesian optimisation, whereas train
+        # is used for GP (which does an internal CV).
+        train_x, valid_x, train_y, valid_y = train_test_split(data_x, data_y, train_size=0.9, shuffle=True,
+                                                              random_state=self.random_state)
+
         # Register the fitness function, pass1ing in our training data for evaluation
-        self.toolbox.register("evaluate", self._fitness_function, x=data_x, y=data_y)
+        self.toolbox.register("evaluate", self._fitness_function, x=train_x, y=train_y)
 
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
@@ -133,8 +140,8 @@ class Base:
 
         pop, self.logbook, generations =\
             search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size, lambda_=self.pop_size,
-                                       cxpb=self.crs_rate, mutpb=self.mut_rate,
-                                       end_time=self.end_time, pset=self.pset, stats=stats, halloffame=pareto_front)
+                                       cxpb=self.crs_rate, mutpb=self.mut_rate, end_time=self.end_time,
+                                       valid_x=valid_x, valid_y=valid_y, stats=stats, halloffame=pareto_front)
 
         if verbose:
             print("Best model found:", pareto_front[0], "with fitness of", pareto_front[0].fitness)
@@ -142,7 +149,9 @@ class Base:
 
         # Use the model with the heighest fitness
         self.model = pareto_front[0]
-        self.callable_model = self._to_callable(pareto_front[0])
+        self.callable_model = self.toolbox.compile(pareto_front[0])
+
+        # Note: We now use train + valid as the learning process is over so we want to use all the data
         self.callable_model.fit(data_x, data_y)
 
         self._print_pareto(pareto_front)
@@ -179,7 +188,7 @@ class Base:
         if tree_str in self.cache:
             return self.cache[tree_str]
 
-        model = self._to_callable(individual)
+        model = self.toolbox.compile(individual)
 
         try:
             # Time out if we pass the allowed amount of time.
@@ -203,9 +212,9 @@ class Base:
 
         return fitness
 
-    def _to_callable(self, individual):
+    def compile(self, individual, pset):
         # Currently need to do 2 evals. TODO: Reduce this to one
-        init = self.toolbox.compile(expr=individual)
+        init = gp.compile(expr=individual, pset=pset)
         return eval(str(init), self.pset.context, {})
 
     def plot(self, file_name):

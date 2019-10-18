@@ -5,11 +5,12 @@ from src.customdeap import SearchExhaustedException
 from functools import partial
 from hyperopt import fmin, tpe, hp, space_eval, Trials
 from hyperopt.fmin import generate_trials_to_calculate
+from hyperopt.pyll.base import scope
 from sklearn.model_selection import cross_val_score
 import numpy as np
 
-def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time, pset,
-                        stats=None, halloffame=None, verbose=__debug__):
+def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time, valid_x, valid_y, halloffame,
+                        stats=None, verbose=__debug__):
     """
         This is the :math:`(\mu + \lambda)` evolutionary algorithm.
         This is a modification of the DEAP version: eaMuPlusLambda,
@@ -29,12 +30,10 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
         fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
 
         for ind, fit in zip(invalid_ind, fitnesses):
-            bayesian_parameter_optimisation(ind, toolbox, [], [], pset)
             ind.fitness.values = fit
 
         # Update the hall of fame with the generated individuals
-        if halloffame is not None:
-            halloffame.update(offspring)
+        halloffame.update(offspring)
 
         # Select the next generation population
         population[:] = toolbox.select(population + offspring, mu)
@@ -47,13 +46,11 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
 
         gen += 1
 
-        try:
-            # Vary the population for next generation
-            offspring = customdeap.varOr(population, toolbox, lambda_, cxpb, mutpb)
-        except SearchExhaustedException:
-            print("Search finished, exiting early")
-            # If this happens we have exhausted our search space
-            break
+        # Vary the population for next generation
+        offspring = customdeap.varOr(population, toolbox, lambda_, cxpb, mutpb)
+
+    # Run bayesian optimisation on best individual seen
+    halloffame[0] = bayesian_parameter_optimisation(halloffame[0], toolbox, valid_x, valid_y, evals=1000)
 
     return population, logbook, gen
 
@@ -80,13 +77,11 @@ def objective_function(tree, valid_x, valid_y, toolbox, hyperparameter_indices, 
 
     """
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, *params)
+    callable_tree = toolbox.compile(tree)
 
-    return 1
+    f1 = cross_val_score(callable_tree, valid_x, valid_y, cv=3, scoring="f1_weighted").mean()
 
-    # TODO: Use seperate set for bayesian
-    f1 = cross_val_score(tree, valid_x, valid_y, cv=3, scoring="f1_weighted").mean()
-
-    # Hyperopt minimises
+    # Hyperopt minimises, so negate the f1
     return -f1
 
 def _create_sampler(label, node):
@@ -112,7 +107,7 @@ def _create_sampler(label, node):
 
         if value_type == int:
             # Sample uniformly between the integers. Smooth function.
-            return hp.quniform(label, low=min(node_values), high=max(node_values), q=1), default
+            return scope.int(hp.quniform(label, low=min(node_values), high=max(node_values), q=1)), default
         elif value_type == float:
             # We want to sample from log distribution due to the differing of scales, otherwise we will
             # do more exploration in larger regions. Note: we take the log when specifyig
@@ -147,7 +142,8 @@ def get_hyperparameters_from_tree(tree):
 
     return hyperparameters, hyperparameter_indices, defaults
 
-def bayesian_parameter_optimisation(tree, toolbox, valid_x, valid_y, pset):
+
+def bayesian_parameter_optimisation(tree, toolbox, valid_x, valid_y, evals=20):
     """
     Optimises the parameters in tree with bayesian optimisation.
     Returns a copy of the tree with the updated hyperparameters.
@@ -167,11 +163,12 @@ def bayesian_parameter_optimisation(tree, toolbox, valid_x, valid_y, pset):
         fn=partial(objective_function, tree, valid_x, valid_y, toolbox, hyperparameter_indices),
         space=hyperparameters,
         algo=tpe.suggest,
-        max_evals=20,
-        trials=trials
+        max_evals=evals,
+        trials=trials,
     )
 
     optimised_params = space_eval(hyperparameters, best)
+
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
 
     return tree
