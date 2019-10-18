@@ -4,6 +4,7 @@ from inspect import isclass
 from deap import gp
 from collections import defaultdict
 from copy import copy
+from src.search import bayesian_parameter_optimisation
 
 class SearchExhaustedException(Exception):
     pass
@@ -248,8 +249,8 @@ def diverse_crossover(population, toolbox):
         if ind1:
             return ind1
 
-    # If we get here we couldnt find a unique breeder, need to mutate one instead. TODO: Should we just mutate
-    # a hyperparameter here instead?
+    # If we get here we couldnt find a unique breeder or couldnt create unique child, need to mutate one instead.
+    # TODO: Should we just mutate a hyperparameter here instead?
     return diverse_mutate(population, toolbox)
 
 
@@ -276,8 +277,8 @@ def diverse_mutate(population, toolbox):
     # At this stage we have tried the entire population and cant make a unique individual
     # This means the given search space has been entirely explored.
     print("Couldnt generate a unique individual from mutation!")
-
-    return random.choice(population)
+    choice = random.choice(population)
+    return toolbox.clone(choice)
 
     # TODO: We could raise an exception at this point to stop the search early
     raise SearchExhaustedException("Search space exhausted")
@@ -301,7 +302,7 @@ def _get_children_indices(node, subtree):
 
 
 def mutate_choice(individual, pset, expr, toolbox, existing):
-    options = [mutShrink, mutNodeReplacement, mutUniform, mutInsert]
+    options = [mutShrink, mutNodeReplacement, mutUniform, mutInsert, mutBayesian]
 
     # Try each method until a unique individual created
     for method in shuffled(options):
@@ -494,6 +495,26 @@ def mutInsert(individual, pset, expr, toolbox, existing):
     return None, None
 
 
+def mutBayesian(individual, pset, expr, toolbox, existing, max_tries=10):
+    """
+    Extension of gp.mutUniform which tries to mutate individual
+    to one which hasnt existed before
+
+    :param individual: The tree to be mutated.
+    :param expr: A function object that can generate an expression when
+                 called.
+    :returns: A tuple of one tree.
+    """
+
+    ind = bayesian_parameter_optimisation(individual, toolbox, evals=20)
+
+    if str(ind) not in existing:
+        # Found a unique one, so return it
+        return ind, None
+
+    # Couldn't make a unique individual, so return None
+    return None, None
+
 def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
     """
     Extension of gp.mutUniform which tries to mutate individual
@@ -539,11 +560,12 @@ def _get_best(ind1, ind2):
 
 
 def mate_choice(ind1, ind2, existing, toolbox):
-    method = random.choice([cxOnePoint, cxMutateBest])
+    #method = random.choice([cxOnePoint, cxMutateBest])
+    method = random.choice([cxMutateBest])
     return method(ind1, ind2, existing, toolbox)
 
 
-def cxMutateBest(ind1, ind2, existing, toolbox, max_tries=10):
+def cxMutateBest(ind1, ind2, existing, toolbox, max_tries=1):
     """
       Based on the mutation used in Google architecture search: https://arxiv.org/abs/1703.01041.
 
@@ -583,7 +605,6 @@ def cxOnePoint(ind1, ind2, existing, toolbox):
     if len(ind1) < 2 or len(ind2) < 2:
         # No crossover on single node tree
         return None, None
-
 
     # List all available primitive types in each individual
     types1 = gp.defaultdict(list)

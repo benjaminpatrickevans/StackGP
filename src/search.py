@@ -1,7 +1,6 @@
 from deap import tools, gp
 from src import customdeap
 import time
-from src.customdeap import SearchExhaustedException
 from functools import partial
 from hyperopt import fmin, tpe, hp, space_eval, Trials
 from hyperopt.fmin import generate_trials_to_calculate
@@ -49,9 +48,6 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
         # Vary the population for next generation
         offspring = customdeap.varOr(population, toolbox, lambda_, cxpb, mutpb)
 
-    # Run bayesian optimisation on best individual seen
-    halloffame[0] = bayesian_parameter_optimisation(halloffame[0], toolbox, valid_x, valid_y, evals=1000)
-
     return population, logbook, gen
 
 
@@ -70,16 +66,16 @@ def _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, params):
 
     return tree
 
-def objective_function(tree, valid_x, valid_y, toolbox, hyperparameter_indices, *params):
+
+def objective_function(tree, toolbox, hyperparameter_indices, *params):
     """
     What we would like to optimise. In this case we want to maximise the f1 score
     :return:
 
     """
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, *params)
-    callable_tree = toolbox.compile(tree)
 
-    f1 = cross_val_score(callable_tree, valid_x, valid_y, cv=3, scoring="f1_weighted").mean()
+    f1 = toolbox.evaluate(tree, timeout=False, save_in_cache=False)[0]
 
     # Hyperopt minimises, so negate the f1
     return -f1
@@ -130,7 +126,8 @@ def get_hyperparameters_from_tree(tree):
 
     # Find the tunable hyperparameters in the tree.
     for idx, node in enumerate(tree):
-        if isinstance(node, gp.Terminal) and hasattr(node.value, "hyper_parameter"):
+        if isinstance(node, gp.Terminal) and hasattr(node.value, "hyper_parameter")\
+                and node.value.name != "seed": # Dont try optimise random seeds
 
             # Cant optimise if theres only one option
             if len(node.value.range) > 1:
@@ -143,7 +140,7 @@ def get_hyperparameters_from_tree(tree):
     return hyperparameters, hyperparameter_indices, defaults
 
 
-def bayesian_parameter_optimisation(tree, toolbox, valid_x, valid_y, evals=20):
+def bayesian_parameter_optimisation(tree, toolbox, evals=20):
     """
     Optimises the parameters in tree with bayesian optimisation.
     Returns a copy of the tree with the updated hyperparameters.
@@ -160,7 +157,7 @@ def bayesian_parameter_optimisation(tree, toolbox, valid_x, valid_y, evals=20):
     trials = generate_trials_to_calculate([default_values])
 
     best = fmin(
-        fn=partial(objective_function, tree, valid_x, valid_y, toolbox, hyperparameter_indices),
+        fn=partial(objective_function, tree, toolbox, hyperparameter_indices),
         space=hyperparameters,
         algo=tpe.suggest,
         max_evals=evals,

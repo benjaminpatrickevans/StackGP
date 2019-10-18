@@ -122,14 +122,8 @@ class Base:
         # Make the y labels 1D
         data_y = data_y.values.reshape(-1,)
 
-
-        # An internal train/validation set. Validation set used for bayesian optimisation, whereas train
-        # is used for GP (which does an internal CV).
-        train_x, valid_x, train_y, valid_y = train_test_split(data_x, data_y, train_size=0.9, shuffle=True,
-                                                              random_state=self.random_state)
-
         # Register the fitness function, pass1ing in our training data for evaluation
-        self.toolbox.register("evaluate", self._fitness_function, x=train_x, y=train_y)
+        self.toolbox.register("evaluate", self._fitness_function, x=data_x, y=data_y)
 
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
@@ -141,7 +135,7 @@ class Base:
         pop, self.logbook, generations =\
             search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size, lambda_=self.pop_size,
                                        cxpb=self.crs_rate, mutpb=self.mut_rate, end_time=self.end_time,
-                                       valid_x=valid_x, valid_y=valid_y, stats=stats, halloffame=pareto_front)
+                                       valid_x=data_x, valid_y=data_y, stats=stats, halloffame=pareto_front)
 
         if verbose:
             print("Best model found:", pareto_front[0], "with fitness of", pareto_front[0].fitness)
@@ -150,8 +144,6 @@ class Base:
         # Use the model with the heighest fitness
         self.model = pareto_front[0]
         self.callable_model = self.toolbox.compile(pareto_front[0])
-
-        # Note: We now use train + valid as the learning process is over so we want to use all the data
         self.callable_model.fit(data_x, data_y)
 
         self._print_pareto(pareto_front)
@@ -175,11 +167,11 @@ class Base:
 
         return self.callable_model.predict(x)
 
-    def _fitness_function(self, individual, x, y):
+    def _fitness_function(self, individual, x, y, timeout=True, save_in_cache=True):
         seconds_left = self.end_time - time.time()
 
         # Dont evaluate, we need to stop as the time is up
-        if seconds_left <= 0:
+        if timeout and seconds_left <= 0:
             return -inf, inf
 
         tree_str = str(individual)
@@ -207,8 +199,9 @@ class Base:
         # Fitness is the average score (across folds) and the complexity
         fitness = score, complexity
 
-        # Store fitness in cache so we don't need to reevaluate
-        self.cache[tree_str] = fitness
+        if save_in_cache:
+            # Store fitness in cache so we don't need to reevaluate
+            self.cache[tree_str] = fitness
 
         return fitness
 
