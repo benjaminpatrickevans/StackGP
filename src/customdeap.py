@@ -4,7 +4,7 @@ from inspect import isclass
 from deap import gp
 from collections import defaultdict
 from copy import copy
-from src.search import bayesian_parameter_optimisation
+from src.bayesopt import bayesian_parameter_optimisation
 
 class SearchExhaustedException(Exception):
     pass
@@ -506,7 +506,7 @@ def mutBayesian(individual, pset, expr, toolbox, existing, max_tries=10):
     :returns: A tuple of one tree.
     """
 
-    ind = bayesian_parameter_optimisation(individual, toolbox, evals=20)
+    ind = bayesian_parameter_optimisation(individual, toolbox, evals=10)
 
     if str(ind) not in existing:
         # Found a unique one, so return it

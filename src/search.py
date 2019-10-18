@@ -1,11 +1,8 @@
-from deap import tools, gp
+from deap import tools
 from src import customdeap
 import time
-from functools import partial
-from hyperopt import fmin, tpe, hp, space_eval, Trials
-from hyperopt.fmin import generate_trials_to_calculate
-from hyperopt.pyll.base import scope
-from sklearn.model_selection import cross_val_score
+
+
 import numpy as np
 
 def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time, valid_x, valid_y, halloffame,
@@ -37,6 +34,7 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
         # Select the next generation population
         population[:] = toolbox.select(population + offspring, mu)
 
+
         # Update the statistics with the new population
         record = stats.compile(population) if stats is not None else {}
         logbook.record(gen=gen, nevals=len(invalid_ind), **record)
@@ -51,121 +49,5 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
     return population, logbook, gen
 
 
-def _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, params):
-    tree = toolbox.clone(tree)
-
-    for i, param_idx in enumerate(hyperparameter_indices):
-        existing_node = tree[param_idx]
-
-        value = params[i]
-
-        new_value = existing_node.ret(value)  # Need to wrap it in the original type for STGP
-
-        # Replace the value with the updated one
-        existing_node.value = new_value
-
-    return tree
 
 
-def objective_function(tree, toolbox, hyperparameter_indices, *params):
-    """
-    What we would like to optimise. In this case we want to maximise the f1 score
-    :return:
-
-    """
-    tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, *params)
-
-    f1 = toolbox.evaluate(tree, timeout=False, save_in_cache=False)[0]
-
-    # Hyperopt minimises, so negate the f1
-    return -f1
-
-def _create_sampler(label, node):
-    """
-        Returns a sampler and default value based on the values specified in node.
-        String -> hp.choice,
-        Int -> hp.quniform,
-        float -> hp.loguniform
-    :param label:
-    :param node:
-    :return:
-    """
-    # The list of allowable values
-    node_values = node.range
-
-    # The value already set by GP
-    default = node.val
-
-    types = set(type(value) for value in node_values)
-
-    if len(types) == 1:
-        value_type = next(iter(types))
-
-        if value_type == int:
-            # Sample uniformly between the integers. Smooth function.
-            return scope.int(hp.quniform(label, low=min(node_values), high=max(node_values), q=1)), default
-        elif value_type == float:
-            # We want to sample from log distribution due to the differing of scales, otherwise we will
-            # do more exploration in larger regions. Note: we take the log when specifyig
-            # low and high too, because the given scale is already as logs and this will raise to e when passed in
-            safe_min = min(node_values)
-            if safe_min == 0:
-                # Avoid taking log of 0
-                safe_min = 0.00001
-            return hp.loguniform(label, low=np.log(safe_min), high=np.log(max(node_values))), default
-
-    # Default case is to just use hp_choice. At this point we assume its a categorical or mixture of value types
-    # and thus not smooth or continuous.  Note: When using hp_choice we need to return the index of the default value
-    # rather than the default value itself as well
-    return hp.choice(label, node_values), node_values.index(default)
-
-def get_hyperparameters_from_tree(tree):
-    hyperparameters = []
-    hyperparameter_indices = []
-    defaults = {}
-
-    # Find the tunable hyperparameters in the tree.
-    for idx, node in enumerate(tree):
-        if isinstance(node, gp.Terminal) and hasattr(node.value, "hyper_parameter")\
-                and node.value.name != "seed": # Dont try optimise random seeds
-
-            # Cant optimise if theres only one option
-            if len(node.value.range) > 1:
-                sampler, default = _create_sampler(str(idx), node.value)
-
-                hyperparameters.append(sampler)
-                hyperparameter_indices.append(idx)
-                defaults[str(idx)] = default
-
-    return hyperparameters, hyperparameter_indices, defaults
-
-
-def bayesian_parameter_optimisation(tree, toolbox, evals=20):
-    """
-    Optimises the parameters in tree with bayesian optimisation.
-    Returns a copy of the tree with the updated hyperparameters.
-    :param tree:
-    :return:
-    """
-    hyperparameters, hyperparameter_indices, default_values = get_hyperparameters_from_tree(tree)
-
-    if not hyperparameters:
-        # Cant optimise a tree with no tunable args, so just return a copy of the original tree
-        return toolbox.clone(tree)
-
-    # Start the search at the existing values rather than randomly
-    trials = generate_trials_to_calculate([default_values])
-
-    best = fmin(
-        fn=partial(objective_function, tree, toolbox, hyperparameter_indices),
-        space=hyperparameters,
-        algo=tpe.suggest,
-        max_evals=evals,
-        trials=trials,
-    )
-
-    optimised_params = space_eval(hyperparameters, best)
-
-    tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
-
-    return tree
