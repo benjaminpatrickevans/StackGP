@@ -3,9 +3,10 @@ from src import customdeap
 import time
 from src.customdeap import SearchExhaustedException
 from functools import partial
-from hyperopt import fmin, tpe, hp, space_eval
+from hyperopt import fmin, tpe, hp, space_eval, Trials
+from hyperopt.fmin import generate_trials_to_calculate
 from sklearn.model_selection import cross_val_score
-from collections import OrderedDict
+import numpy as np
 
 def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time, pset,
                         stats=None, halloffame=None, verbose=__debug__):
@@ -57,19 +58,14 @@ def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, end_time,
     return population, logbook, gen
 
 
-def _fill_with_hyperparameters(tree, toolbox, params):
-    """
-    Creates a copy of the tree and changes the the parameters
-    to the ones specified in params.
-    :param tree:
-    :param toolbox:
-    :param params: A dict from node idx -> parameter value
-    :return:
-    """
+def _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, params):
     tree = toolbox.clone(tree)
 
-    for idx, value in params.items():
-        existing_node = tree[int(idx)]
+    for i, param_idx in enumerate(hyperparameter_indices):
+        existing_node = tree[param_idx]
+
+        value = params[i]
+
         new_value = existing_node.ret(value)  # Need to wrap it in the original type for STGP
 
         # Replace the value with the updated one
@@ -77,13 +73,13 @@ def _fill_with_hyperparameters(tree, toolbox, params):
 
     return tree
 
-def objective_function(tree, valid_x, valid_y, toolbox, *params):
+def objective_function(tree, valid_x, valid_y, toolbox, hyperparameter_indices, *params):
     """
     What we would like to optimise. In this case we want to maximise the f1 score
     :return:
 
     """
-    tree = _fill_with_hyperparameters(tree, toolbox, *params)
+    tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, *params)
 
     return 1
 
@@ -93,6 +89,32 @@ def objective_function(tree, valid_x, valid_y, toolbox, *params):
     # Hyperopt minimises
     return -f1
 
+def _determine_sampling_type(node_values):
+    return hp.choice
+
+def get_hyperparameters_from_tree(tree):
+    hyperparameters = []
+    hyperparameter_indices = []
+    defaults = {}
+
+    for idx, node in enumerate(tree):
+        if isinstance(node, gp.Terminal) and hasattr(node.value, "hyper_parameter"):
+            hyperparameter_name = str(idx)
+
+            node_values = node.value.range
+            sampler = _determine_sampling_type(node_values)
+            hyperparameters.append(sampler(str(idx), node_values))
+            hyperparameter_indices.append(idx)
+
+            default = node.value.val
+
+            # Weird behaviours with hyeropt which expects choice to take an index, not the value
+            if sampler.__name__ == "hp_choice":
+                default = node_values.index(default)
+
+            defaults[str(idx)] = default
+
+    return hyperparameters, hyperparameter_indices, defaults
 
 def bayesian_parameter_optimisation(tree, toolbox, valid_x, valid_y, pset):
     """
@@ -101,21 +123,24 @@ def bayesian_parameter_optimisation(tree, toolbox, valid_x, valid_y, pset):
     :param tree:
     :return:
     """
-    # Need to convert the tree into a function which takes the hyperparameters as arguments
-    hyperparameters = {idx: hp.choice(str(idx), node.value.range) for idx, node in enumerate(tree)
-                 if isinstance(node, gp.Terminal) and hasattr(node.value, "hyper_parameter")}
+    hyperparameters, hyperparameter_indices, default_values = get_hyperparameters_from_tree(tree)
 
     if not hyperparameters:
         # Cant optimise a tree with no tunable args, so just return a copy of the original tree
         return toolbox.clone(tree)
 
+    # Start the search at the existing values rather than randomly
+    trials = generate_trials_to_calculate([default_values])
+
     best = fmin(
-        fn=partial(objective_function, tree, valid_x, valid_y, toolbox),
+        fn=partial(objective_function, tree, valid_x, valid_y, toolbox, hyperparameter_indices),
         space=hyperparameters,
         algo=tpe.suggest,
-        max_evals=10,
+        max_evals=20,
+        trials=trials
     )
 
     optimised_params = space_eval(hyperparameters, best)
+    tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
 
-    return _fill_with_hyperparameters(tree, toolbox, optimised_params)
+    return tree

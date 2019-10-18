@@ -10,7 +10,6 @@ from sklearn.ensemble import VotingClassifier
 from sklearn.base import ClassifierMixin as ClassifierType
 from sklearn.pipeline import Pipeline
 from src.combiners import VotingBaseClassifier, StackingBaseClassifier
-import numpy as np
 import random
 import src.customtypes as types
 
@@ -29,7 +28,8 @@ classifier_map = {
     ExtraTreesClassifier: {
         'n_estimators': [100],
         'criterion': ["gini", "entropy"],
-        'max_features': np.arange(0.05, 1.01, 0.05),
+        'max_features': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
+       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
         'min_samples_split': range(2, 21),
         'min_samples_leaf': range(1, 21),
         'bootstrap': [True, False]
@@ -38,7 +38,8 @@ classifier_map = {
     RandomForestClassifier: {
         'n_estimators': [100],
         'criterion': ["gini", "entropy"],
-        'max_features': np.arange(0.05, 1.01, 0.05),
+        'max_features': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
+       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.],
         'min_samples_split': range(2, 21),
         'min_samples_leaf':  range(1, 21),
         'bootstrap': [True, False]
@@ -50,8 +51,10 @@ classifier_map = {
         'max_depth': range(1, 11),
         'min_samples_split': range(2, 21),
         'min_samples_leaf': range(1, 21),
-        'subsample': np.arange(0.05, 1.01, 0.05),
-        'max_features': np.arange(0.05, 1.01, 0.05)
+        'subsample': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
+       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
+        'max_features': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
+       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
     },
 
     KNeighborsClassifier: {
@@ -76,7 +79,8 @@ classifier_map = {
         'n_estimators': [100],
         'max_depth': range(1, 11),
         'learning_rate': [1e-3, 1e-2, 1e-1, 0.5, 1.],
-        'subsample': np.arange(0.05, 1.01, 0.05),
+        'subsample': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
+       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
         'min_child_weight': range(1, 21),
         'nthread': [1]
     },
