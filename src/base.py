@@ -94,7 +94,7 @@ class Base:
         return mstats
 
     def fit(self, data_x, data_y, verbose=1):
-        # How long can we run fit for
+        # How long can we run fit for in seconds
         self.end_time = time.time() + (self.max_run_time_mins * 60)
 
         num_instances, num_features = data_x.shape
@@ -116,13 +116,13 @@ class Base:
         stats = Base.create_stats()
         hof = tools.HallOfFame(1)
 
-        #hof, self.logbook, generations =\
-        #    search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
-        #                             stats=stats, verbose=self.verbose)
-
         hof, self.logbook, generations =\
-            search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size, lambda_=self.pop_size,
-                                       end_time=self.end_time, stats=stats)
+            search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
+                                     stats=stats, verbose=self.verbose)
+
+        #hof, self.logbook, generations =\
+        #    search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size, lambda_=self.pop_size,
+        #                               end_time=self.end_time, stats=stats)
 
         if verbose:
             print("Best model found:", hof[0], "with fitness of", hof[0].fitness)
@@ -139,10 +139,9 @@ class Base:
         self.cache = {}
 
 
-    def _calculate_complexity(self, tree_str):
-        # Complexity measured by the number of voting nodes - TODO: one pass
-        complexity = (3 * tree_str.count("Voting3")) + (5 * tree_str.count("Voting5")) +\
-                     (4 * tree_str.count("Stacking3")) + (6 * tree_str.count("Stacking5"))
+    def _calculate_complexity(self, tree):
+        # Complexity measured as the number of estimators in a model.
+        complexity = sum([1 for node in tree if node.ret == self.est_type])
 
         return complexity
 
@@ -179,7 +178,7 @@ class Base:
                 print("Tree was", tree_str)
             score = 0
 
-        complexity = self._calculate_complexity(tree_str)
+        complexity = self._calculate_complexity(individual)
 
         # Fitness is the average score (across folds) and the complexity
         fitness = score, complexity

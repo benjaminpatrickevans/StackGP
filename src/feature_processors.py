@@ -135,10 +135,10 @@ processors = {
     DummySelector: {},
 
     # Random Features for introducing diversity into the ensembles
-    RandomSelector: {
-        'seed': range(100),
-        'percentile': range(5, 51, 5)
-    },
+    #RandomSelector: {
+    #    'seed': range(100),
+    #    'percentile': range(5, 51, 5)
+    #},
 
     SelectFClassif: {
         'percentile': range(5, 101, 5)

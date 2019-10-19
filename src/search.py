@@ -89,6 +89,10 @@ def elitist_mutations(population, toolbox, end_time, stats=None, verbose=__debug
         # Mutate the parents to produce new child offsprings
         children = [toolbox.mutate(parent)[0] for parent in parents]
 
+        # Do not inherit previous fitness from parents
+        for child in children:
+            child.previous_scores = None
+
         # The next generation becomes the parents and children
         population[:] = parents + children
 

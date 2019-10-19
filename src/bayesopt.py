@@ -5,7 +5,7 @@ from functools import partial
 from deap import gp
 import numpy as np
 from hyperopt.pyll.base import Literal
-
+import random
 
 # The code below is a hacky fix. len(RandomForestClassifier) throws
 # an exception when called, here we can catch that exception AttributeError)
@@ -13,12 +13,14 @@ from hyperopt.pyll.base import Literal
 def safe__init__(self, obj=None):
     try:
         o_len = len(obj)
-    except (TypeError, AttributeError):
+    except TypeError:
+        o_len = None
+    except AttributeError:  # Added for catching exceptions with len on untrained RandomForest
         o_len = None
     Apply.__init__(self, 'literal', [], {}, o_len, pure=True)
     self._obj = obj
 
-#Literal.__init__ = safe__init__
+Literal.__init__ = safe__init__
 
 def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     """
@@ -32,7 +34,8 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
         hyperparameters, hyperparameter_indices, default_values = _get_hyperparameters_from_tree(tree)
     except AttributeError as e:
         print("ERROR, the tree causing the error was:", tree)
-        raise e
+        hyperparameters = None
+        #raise e
 
     if not hyperparameters:
         # Cant optimise a tree with no tunable args, so just return a copy of the original tree
@@ -41,17 +44,23 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     # Start the search at the existing values rather than randomly
     trials = generate_trials_to_calculate([default_values])
 
+    # Each time we do bayesian optimisation we should use a new random seed to prevent overfitting
+    # to a particular split
+    seed = random.randint(0, 1000)
+
     best = fmin(
-        fn=partial(_objective_function, tree, toolbox, hyperparameter_indices),
+        fn=partial(_objective_function, tree, toolbox, hyperparameter_indices, seed),
         space=hyperparameters,
         algo=tpe.suggest,
         max_evals=evals,
         trials=trials,
+        verbose=0
     )
 
     optimised_params = space_eval(hyperparameters, best)
 
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
+
     return tree
 
 
@@ -82,7 +91,7 @@ def _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, params):
     return tree
 
 
-def _objective_function(tree, toolbox, hyperparameter_indices, *params):
+def _objective_function(tree, toolbox, hyperparameter_indices, seed, *params):
     """
     What we would like to optimise. In this case we want to maximise the f1 score
     :return:
@@ -91,7 +100,7 @@ def _objective_function(tree, toolbox, hyperparameter_indices, *params):
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, *params)
 
     # Dont save in cache or we will get lots of intermediary models in the cache
-    f1 = toolbox.evaluate(tree, timeout=False, save_in_cache=False)[0]
+    f1 = toolbox.evaluate(tree, seed=seed, timeout=False, save_in_cache=False)[0]
 
     # Hyperopt minimises, so negate the f1
     return -f1

@@ -14,20 +14,6 @@ import random
 import src.customtypes as types
 
 classifier_map = {
-    RandomForestClassifier: {
-        'n_estimators': [100],
-        'criterion': ["gini", "entropy"],
-        'max_features': [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55,
-                         0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.],
-        'min_samples_split': range(2, 21),
-        'min_samples_leaf': range(1, 21),
-        'bootstrap': [True, False]
-    },
-}
-
-
-# TODO: Use this instead
-classifier_map_true = {
     # Classifiers
     GaussianNB: {
     },
@@ -40,6 +26,7 @@ classifier_map_true = {
     },
 
     ExtraTreesClassifier: {
+        #TODO: We should optimise over range of n_estimators
         'n_estimators': [100],
         'criterion': ["gini", "entropy"],
         'max_features': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
