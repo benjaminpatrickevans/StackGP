@@ -6,8 +6,8 @@ import operator
 import time
 from math import inf
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
 from src.components import CustomPipeline
+
 
 class Base:
     """
@@ -17,11 +17,9 @@ class Base:
         rather use a base class.
     """
 
-    def __init__(self, pop_size, max_run_time_mins, max_eval_time_mins, crs_rate, mut_rate, max_depth, n_jobs, verbose, random_state):
+    def __init__(self, pop_size, max_run_time_mins, max_eval_time_mins, max_depth, n_jobs, verbose, random_state):
 
         self.pop_size = pop_size
-        self.crs_rate = crs_rate
-        self.mut_rate = mut_rate
         self.max_depth = max_depth
         self.n_jobs = n_jobs
         self.verbose = verbose
@@ -56,38 +54,27 @@ class Base:
     def create_toolbox(self):
         toolbox = base.Toolbox()
 
-        # Maximising f1-score, minimising complexity
         creator.create('FitnessMulti', base.Fitness, weights=(1.0, -1.0))
 
         # Individuals are represented as trees, the typical GP representation
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset)
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset, previous_scores=None)
 
         # Between 1 layer and max depth high
         toolbox.register("expr", customdeap.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
 
-        # Crossover
-        #toolbox.register("mate", customdeap.cxOnePoint, existing=self.cache, toolbox=toolbox)
-        #toolbox.register("mate", customdeap.cxMutateBest, toolbox=toolbox)
-        toolbox.register("mate", customdeap.mate_choice, existing=self.cache, toolbox=toolbox)
+        # Individuals should be made based on the expr method above
+        toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
 
         # Mutation
         toolbox.register("expr_mut", customdeap.genHalfAndHalf, min_=0, max_=3)
         toolbox.register("mutate", customdeap.mutate_choice, pset=self.pset, expr=toolbox.expr_mut,
                          existing=self.cache, toolbox=toolbox)
-
-        toolbox.decorate("mate", customdeap.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
-        toolbox.decorate("mutate", customdeap.safeStaticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
-
-        # Selection
-        toolbox.register("select", tools.selNSGA2, nd="log")
-
-        # Individuals should be made based on the expr method above
-        toolbox.register("individual", tools.initIterate, creator.Individual, toolbox.expr)
+        toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
 
         # The population is just a list of individuals
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-        # Use the standard deap method of compiling an individual
+        # Compile is used to turn a tree into runnable python code
         toolbox.register("compile", self.compile, pset=self.pset)
 
         return toolbox
@@ -127,32 +114,30 @@ class Base:
 
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
+        hof = tools.HallOfFame(1)
 
-        # For floating point numbers, define a "tolerance" for the pareto front
-        similarity = lambda ind1, ind2: np.allclose(ind1.fitness.values, ind2.fitness.values)
-        pareto_front = tools.ParetoFront(similar=similarity)
+        #hof, self.logbook, generations =\
+        #    search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
+        #                             stats=stats, verbose=self.verbose)
 
-        pop, self.logbook, generations =\
+        hof, self.logbook, generations =\
             search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size, lambda_=self.pop_size,
-                                       cxpb=self.crs_rate, mutpb=self.mut_rate, end_time=self.end_time,
-                                       valid_x=data_x, valid_y=data_y, stats=stats, halloffame=pareto_front)
+                                       end_time=self.end_time, stats=stats)
 
         if verbose:
-            print("Best model found:", pareto_front[0], "with fitness of", pareto_front[0].fitness)
+            print("Best model found:", hof[0], "with fitness of", hof[0].fitness)
             print("Percentage of unique models:", (len(self.cache) / (generations * self.pop_size)) * 100)
 
         # Use the model with the heighest fitness
-        self.model = pareto_front[0]
-        self.callable_model = self.toolbox.compile(pareto_front[0])
+        self.model = hof[0]
+        self.callable_model = self.toolbox.compile(hof[0])
         self.callable_model.fit(data_x, data_y)
 
-        self._print_pareto(pareto_front)
+        print("Pareto front:", [solution.fitness.values for solution in hof])
 
         # Clear the cache to free memory now we have finished evolution
         self.cache = {}
 
-    def _print_pareto(self, pareto_front):
-            print("Pareto front:", [solution.fitness.values for solution in pareto_front])
 
     def _calculate_complexity(self, tree_str):
         # Complexity measured by the number of voting nodes - TODO: one pass
@@ -167,7 +152,7 @@ class Base:
 
         return self.callable_model.predict(x)
 
-    def _fitness_function(self, individual, x, y, timeout=True, save_in_cache=True):
+    def _fitness_function(self, individual, x, y, seed=0, timeout=True, save_in_cache=False):
         seconds_left = self.end_time - time.time()
 
         # Dont evaluate, we need to stop as the time is up
@@ -186,7 +171,7 @@ class Base:
             # Time out if we pass the allowed amount of time.
             allowed_time_seconds = int(min(seconds_left, self.max_eval_time_mins * 60))
             score = scorer.timed_cross_validation(model, x, y, self.scoring_fn, allowed_time_seconds,
-                                                  n_jobs=self.n_jobs, cv=3)
+                                                  n_jobs=self.n_jobs, num_folds=3, seed=seed)
         except Exception as e:
             # This can occur if the individual model throws an exception, or if the function times out
             if self.verbose:

@@ -1,9 +1,24 @@
 from hyperopt import fmin, tpe, hp, space_eval
 from hyperopt.fmin import generate_trials_to_calculate
-from hyperopt.pyll.base import scope
+from hyperopt.pyll.base import scope, Literal, Apply
 from functools import partial
 from deap import gp
 import numpy as np
+from hyperopt.pyll.base import Literal
+
+
+# The code below is a hacky fix. len(RandomForestClassifier) throws
+# an exception when called, here we can catch that exception AttributeError)
+# in the try and set the length to None.
+def safe__init__(self, obj=None):
+    try:
+        o_len = len(obj)
+    except (TypeError, AttributeError):
+        o_len = None
+    Apply.__init__(self, 'literal', [], {}, o_len, pure=True)
+    self._obj = obj
+
+#Literal.__init__ = safe__init__
 
 def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     """
@@ -12,7 +27,12 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     :param tree:
     :return:
     """
-    hyperparameters, hyperparameter_indices, default_values = _get_hyperparameters_from_tree(tree)
+    # TODO: Remove this try, only for debugging
+    try:
+        hyperparameters, hyperparameter_indices, default_values = _get_hyperparameters_from_tree(tree)
+    except AttributeError as e:
+        print("ERROR, the tree causing the error was:", tree)
+        raise e
 
     if not hyperparameters:
         # Cant optimise a tree with no tunable args, so just return a copy of the original tree
@@ -32,7 +52,6 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     optimised_params = space_eval(hyperparameters, best)
 
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
-
     return tree
 
 
@@ -71,6 +90,7 @@ def _objective_function(tree, toolbox, hyperparameter_indices, *params):
     """
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, *params)
 
+    # Dont save in cache or we will get lots of intermediary models in the cache
     f1 = toolbox.evaluate(tree, timeout=False, save_in_cache=False)[0]
 
     # Hyperopt minimises, so negate the f1

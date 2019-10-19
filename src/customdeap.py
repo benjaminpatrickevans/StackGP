@@ -6,8 +6,6 @@ from collections import defaultdict
 from copy import copy
 from src.bayesopt import bayesian_parameter_optimisation
 
-class SearchExhaustedException(Exception):
-    pass
 
 ######################################
 # GP Program generation functions    #
@@ -106,14 +104,9 @@ def generate(pset, min_, max_, condition, type_=None):
                 if type_.__name__ in ["ClassifierMixin", "RegressorMixin"]:
 
                     # If we try add a classifier terminal, instead add a classifier primitive.
-
-                    # Do not add a VotingClassifier  though or we risk getting stuck in an infinite loop
-                    bad_prefixes = ["Voting", "Stacking"]
-
-                    # Find a primitive which does not begin with any of the prefixes in the bad_prefixes
+                    # Find a primitive that will not cause a loop, for example not keep trying to add voting nodes.
                     allowed_primitives = [prim for prim in pset.primitives[type_]
-                                if not any(prim.name.startswith(bad_prefix) for bad_prefix in bad_prefixes)]
-
+                                          if prim.ret not in prim.args]
                 else:
                     # Need to use the dummy nodes
                     allowed_primitives = [prim for prim in pset.primitives[type_] if prim.name.startswith("Dummy")]
@@ -170,120 +163,6 @@ def add_terminal(pset, type_, requires_dummy=False):
     return term
 
 
-def _subtree_str(tree, starting_idx):
-    """
-    Returns the subtree from tree starting at
-    starting_idx
-    :param tree:
-    :param starting_idx:
-    :return:
-    """
-    subtree_slice = tree.searchSubtree(starting_idx)
-    subtree = gp.PrimitiveTree(tree[subtree_slice])
-    return str(subtree)
-
-
-def varOr(population, toolbox, lambda_, cxpb, mutpb):
-    """
-    This is a variation on the deap.algorithms.varOr function.
-
-    The difference is this tries to promotove diversity
-    by selecting individuals for corssover which generate a unique offspring,
-    and by selecting an individual which when mutated creates a unique individual.
-    """
-    assert (cxpb + mutpb) <= 1.0, (
-        "The sum of the crossover and mutation probabilities must be smaller "
-        "or equal to 1.0.")
-
-    offspring = []
-    for _ in range(lambda_):
-        op_choice = random.random()
-        if op_choice < cxpb:            # Apply crossover
-            ind = diverse_crossover(population, toolbox)
-            del ind.fitness.values
-            offspring.append(ind)
-        elif op_choice < cxpb + mutpb:  # Apply mutation
-            ind = diverse_mutate(population, toolbox)
-            del ind.fitness.values
-            offspring.append(ind)
-        else:                           # Apply reproduction
-            offspring.append(random.choice(population))
-
-    return offspring
-
-
-def _unique_parents(population):
-    # Breedable trees are at least one node high
-    breedable_trees = [ind for ind in population if ind.height > 1]
-
-    # See if we can find unique breeders in the population
-    for parent in shuffled(breedable_trees):
-
-        # A unique breeder must be different after the root. If the root is the same, but the children
-        # match then we cant create a unique child with crossover so we do not consider these unique breeders
-        parent_below_root = _subtree_str(parent, starting_idx=1)
-        unique_breeders = [ind for ind in breedable_trees
-                           if _subtree_str(ind, starting_idx=1) != parent_below_root]
-
-        for breeder in unique_breeders:
-            yield parent, breeder
-
-
-def diverse_crossover(population, toolbox):
-    """
-        Finds two parents which when combined produce
-        a unique individual which has not yet existed in the population.
-
-    :param population:
-    :param toolbox:
-    :return:
-    """
-
-    for parent1, parent2 in _unique_parents(population):
-        parent1 = toolbox.clone(parent1)
-        parent2 = toolbox.clone(parent2)
-
-        ind1, _ = toolbox.mate(parent1, parent2)
-
-        # If there is an ind1, it means it was unique so return it
-        if ind1:
-            return ind1
-
-    # If we get here we couldnt find a unique breeder or couldnt create unique child, need to mutate one instead.
-    # TODO: Should we just mutate a hyperparameter here instead?
-    return diverse_mutate(population, toolbox)
-
-
-
-def diverse_mutate(population, toolbox):
-    """
-        Mutates ind1 if it can create a unique individual (i.e. one that hasnt existed
-        before). If not possible, finds a value from the population which can be
-        mutated to generate unique individual.
-
-    :param toolbox:
-    :param ind1:
-    :param population:
-    :return:
-    """
-    for individual in shuffled(population):
-        individual = toolbox.clone(individual)
-        mutated_ind, _ = toolbox.mutate(individual)
-
-        # If we were able to succesfully mutate the indiviual into a unique one
-        if mutated_ind:
-            return mutated_ind
-
-    # At this stage we have tried the entire population and cant make a unique individual
-    # This means the given search space has been entirely explored.
-    print("Couldnt generate a unique individual from mutation!")
-    choice = random.choice(population)
-    return toolbox.clone(choice)
-
-    # TODO: We could raise an exception at this point to stop the search early
-    raise SearchExhaustedException("Search space exhausted")
-
-
 def _get_children_indices(node, subtree):
     # Keep track of the children we've already replaced so we dont duplicate branches
     child_idx = 1  # First child is at index 1 of the tree
@@ -302,18 +181,16 @@ def _get_children_indices(node, subtree):
 
 
 def mutate_choice(individual, pset, expr, toolbox, existing):
-    options = [mutShrink, mutNodeReplacement, mutUniform, mutInsert, mutBayesian]
+    methods = [mutShrink, mutNodeReplacement, mutUniform, mutInsert, mutBayesian]
 
-    # Try each method until a unique individual created
-    for method in shuffled(options):
-        ind, _ = method(individual, pset, expr, toolbox, existing)
+    # Try each mutation method until we get an individual not in existing
+    for method in shuffled(methods):
+        ind = method(individual, pset, expr, toolbox, existing)
 
-        # If a unique individual was returned
-        if ind:
-            return ind, None
+        if str(ind) not in existing:
+            return ind,
 
-    # At this point we couldnt create a unique individual, so return None
-    return None, None
+    return toolbox.clone(individual),
 
 
 def mutShrink(individual, pset, expr, toolbox, existing):
@@ -351,10 +228,10 @@ def mutShrink(individual, pset, expr, toolbox, existing):
             ind[slice_] = subtree
 
             if str(ind) not in existing:
-                return ind, None
+                return ind
 
     # Couldnt generate a unique individual. Either no shrinkable primitives or the result had already existed
-    return None, None
+    return toolbox.clone(individual)
 
 
 def mutNodeReplacement(individual, pset, expr, toolbox, existing):
@@ -388,7 +265,7 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
                 ind[index] = term
 
                 if str(ind) not in existing:
-                    return ind, None
+                    return ind
 
         else:   # Primitive
             # If the node has children, then we will swap the common children and generate new children for whats missing
@@ -443,9 +320,9 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
 
                 # If the resulting tree was unique then we are done
                 if str(ind) not in existing:
-                    return ind, None
+                    return ind
 
-    return None, None
+    return toolbox.clone(individual)
 
 
 def mutInsert(individual, pset, expr, toolbox, existing):
@@ -490,9 +367,9 @@ def mutInsert(individual, pset, expr, toolbox, existing):
 
                 # If the resulting tree was unique then we are done
                 if str(ind) not in existing:
-                    return ind, None
+                    return ind
 
-    return None, None
+    return toolbox.clone(individual)
 
 
 def mutBayesian(individual, pset, expr, toolbox, existing, max_tries=10):
@@ -506,14 +383,15 @@ def mutBayesian(individual, pset, expr, toolbox, existing, max_tries=10):
     :returns: A tuple of one tree.
     """
 
-    ind = bayesian_parameter_optimisation(individual, toolbox, evals=10)
+    ind = bayesian_parameter_optimisation(individual, toolbox, evals=20)
 
     if str(ind) not in existing:
         # Found a unique one, so return it
-        return ind, None
+        return ind
 
     # Couldn't make a unique individual, so return None
-    return None, None
+    return toolbox.clone(individual)
+
 
 def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
     """
@@ -539,132 +417,12 @@ def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
 
             if str(ind) not in existing:
                 # Found a unique one, so return it
-                return ind, None
+                return ind
 
-    # Couldn't make a unique individual, so return None
-    return None, None
-
-
-def _get_best(ind1, ind2):
-    # Choose the ind with the highest fitness. Break ties by selecting one with lowest complexity
-    if ind1.fitness.values[0] == ind2.fitness.values[0]:
-        # Tie. Choose lowest complexity
-        if ind1.fitness.values[1] <= ind2.fitness.values[1]:
-            return ind1
-        else:
-            return ind2
-    elif ind1.fitness.values[0] > ind2.fitness.values[0]:
-        return ind1
-    else:
-        return ind2
-
-
-def mate_choice(ind1, ind2, existing, toolbox):
-    #method = random.choice([cxOnePoint, cxMutateBest])
-    method = random.choice([cxMutateBest])
-    return method(ind1, ind2, existing, toolbox)
-
-
-def cxMutateBest(ind1, ind2, existing, toolbox, max_tries=1):
-    """
-      Based on the mutation used in Google architecture search: https://arxiv.org/abs/1703.01041.
-
-      Choose the better of the two parents, and mutate it. This behaves more like mutation
-      but is treated as crossover since there are 2 parents.
-
-    :param ind1:
-    :param ind2:
-    :param toolbox:
-    :return:
-    """
-    # Choose the ind with the highest fitness. Break ties by selecting one with lowest complexity
-    best = _get_best(ind1, ind2)
-
-    for _ in range(max_tries):
-        individual = toolbox.clone(best)
-        mutated_ind, _ = toolbox.mutate(individual)
-
-        if mutated_ind:
-            return mutated_ind, None
-
-    return None, None
-    
-
-def cxOnePoint(ind1, ind2, existing, toolbox):
-    """Randomly select in each individual and exchange each subtree with the
-    point as root between each individual. Tries to ensure a unique crossover,
-    i.e. attempts to generate a child which hasnt existed before.
-
-    If a unique individual can not be generated, the return value will
-    be (ind1, None).
-
-    :param ind1: First tree participating in the crossover.
-    :param ind2: Second tree participating in the crossover.
-    :returns: A tuple of two trees.
-    """
-    if len(ind1) < 2 or len(ind2) < 2:
-        # No crossover on single node tree
-        return None, None
-
-    # List all available primitive types in each individual
-    types1 = gp.defaultdict(list)
-    types2 = gp.defaultdict(list)
-
-    for idx, node in enumerate(ind1[1:], 1):
-        types1[node.ret].append(idx)
-    for idx, node in enumerate(ind2[1:], 1):
-        types2[node.ret].append(idx)
-    common_types = set(types1.keys()).intersection(set(types2.keys()))
-
-    # Try find a crossover point which generates a tree which is different from its parents
-    # Check all crossover points and exit if we find one
-    for type_ in shuffled(list(common_types)):
-        # Parent one loop
-        for node1 in shuffled(types1[type_]):
-            slice1 = ind1.searchSubtree(node1)
-
-            # Parent two loop
-            for node2 in shuffled(types2[type_]):
-                slice2 = ind2.searchSubtree(node2)
-
-                newind1 = toolbox.clone(ind1)
-                newind2 = toolbox.clone(ind2)
-
-                newind1[slice1], newind2[slice2] = ind2[slice2], ind1[slice1]
-
-                newind1_str = str(newind1)
-                newind2_str = str(newind2)
-
-                # If the generated individual is different to its parent and never existed in a previous generation
-                if newind1_str not in existing:
-                    return newind1, newind2
-
-                if newind2_str not in existing:
-                    return newind2, newind1
-
-    # If we get to this point we havent found any suitable crossover points
-    return None, None
+    # Couldn't make a unique individual, so return original
+    return toolbox.clone(individual)
 
 
 def shuffled(l):
     random.shuffle(l)
     return l
-
-
-def safeStaticLimit(key, max_value):
-    """
-    Extension of gp.staticLimit which will
-    work with individuals which can be None
-    """
-    def decorator(func):
-        @gp.wraps(func)
-        def wrapper(*args, **kwargs):
-            keep_inds = [gp.copy.deepcopy(ind) for ind in args]
-            new_inds = list(func(*args, **kwargs))
-            for i, ind in enumerate(new_inds):
-                # All that was changed is the condition below to include a truthy check on ind
-                if ind and key(ind) > max_value:
-                    new_inds[i] = random.choice(keep_inds)
-            return new_inds
-        return wrapper
-    return decorator
