@@ -180,20 +180,21 @@ def _get_children_indices(node, subtree):
     return node_to_replace_child_indices
 
 
-def mutate_choice(individual, pset, expr, toolbox, existing):
+def mutate_choice(individual, pset, expr, toolbox):
     methods = [mutShrink, mutNodeReplacement, mutUniform, mutInsert, mutBayesian]
 
-    # Try each mutation method until we get an individual not in existing
+    # Try each mutation method until we get an individual different to the input
     for method in shuffled(methods):
-        ind = method(individual, pset, expr, toolbox, existing)
+        ind = method(individual, pset, expr, toolbox)
 
-        if str(ind) not in existing:
+        if str(ind) != str(individual):
             return ind,
 
+    # At this point we couldnt mutate to something different than the original
     return toolbox.clone(individual),
 
 
-def mutShrink(individual, pset, expr, toolbox, existing):
+def mutShrink(individual, pset, expr, toolbox):
     """This operator shrinks the *individual* by choosing a random voting node
     and randomly replacing it with one of its children.
 
@@ -227,14 +228,14 @@ def mutShrink(individual, pset, expr, toolbox, existing):
             ind = toolbox.clone(individual)
             ind[slice_] = subtree
 
-            if str(ind) not in existing:
+            if str(ind) != str(individual):
                 return ind
 
-    # Couldnt generate a unique individual. Either no shrinkable primitives or the result had already existed
+    # Couldnt generate a unique individual. Must have been no shrinkable params
     return toolbox.clone(individual)
 
 
-def mutNodeReplacement(individual, pset, expr, toolbox, existing):
+def mutNodeReplacement(individual, pset, expr, toolbox):
     """Replaces a randomly chosen primitive from *individual* by a randomly
     chosen primitive with the same return type. Only the shared children
     types are transferred.
@@ -264,7 +265,7 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
                 ind = toolbox.clone(individual)
                 ind[index] = term
 
-                if str(ind) not in existing:
+                if str(ind) != str(individual):
                     return ind
 
         else:   # Primitive
@@ -318,14 +319,14 @@ def mutNodeReplacement(individual, pset, expr, toolbox, existing):
                 ind = toolbox.clone(individual)
                 ind[slice_] = replacement_tree
 
-                # If the resulting tree was unique then we are done
-                if str(ind) not in existing:
+                # If the resulting tree is different to original then we are done
+                if str(ind) != str(individual):
                     return ind
 
     return toolbox.clone(individual)
 
 
-def mutInsert(individual, pset, expr, toolbox, existing):
+def mutInsert(individual, pset, expr, toolbox):
 
     iprims = [(idx, node) for idx, node in enumerate(individual)
                   if isinstance(node, gp.Primitive)]
@@ -366,13 +367,13 @@ def mutInsert(individual, pset, expr, toolbox, existing):
                 ind[original_subtree_slice_] = replacement_tree
 
                 # If the resulting tree was unique then we are done
-                if str(ind) not in existing:
+                if str(ind) != str(individual):
                     return ind
 
     return toolbox.clone(individual)
 
 
-def mutBayesian(individual, pset, expr, toolbox, existing, max_tries=10):
+def mutBayesian(individual, pset, expr, toolbox):
     """
     Extension of gp.mutUniform which tries to mutate individual
     to one which hasnt existed before
@@ -385,7 +386,7 @@ def mutBayesian(individual, pset, expr, toolbox, existing, max_tries=10):
 
     ind = bayesian_parameter_optimisation(individual, toolbox, evals=20)
 
-    if str(ind) not in existing:
+    if str(ind) != str(individual):
         # Found a unique one, so return it
         return ind
 
@@ -393,7 +394,7 @@ def mutBayesian(individual, pset, expr, toolbox, existing, max_tries=10):
     return toolbox.clone(individual)
 
 
-def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
+def mutUniform(individual, pset, expr, toolbox, max_tries=10):
     """
     Extension of gp.mutUniform which tries to mutate individual
     to one which hasnt existed before
@@ -415,7 +416,7 @@ def mutUniform(individual, pset, expr, toolbox, existing, max_tries=10):
             ind = toolbox.clone(individual)
             ind[slice_] = expr(pset=pset, type_=type_)
 
-            if str(ind) not in existing:
+            if str(ind) != str(individual):
                 # Found a unique one, so return it
                 return ind
 

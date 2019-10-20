@@ -6,6 +6,7 @@ from deap import gp
 import numpy as np
 from hyperopt.pyll.base import Literal
 import random
+from math import inf
 
 # The code below is a hacky fix. len(RandomForestClassifier) throws
 # an exception when called, here we can catch that exception AttributeError)
@@ -29,13 +30,7 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     :param tree:
     :return:
     """
-    # TODO: Remove this try, only for debugging
-    try:
-        hyperparameters, hyperparameter_indices, default_values = _get_hyperparameters_from_tree(tree)
-    except AttributeError as e:
-        print("ERROR, the tree causing the error was:", tree)
-        hyperparameters = None
-        #raise e
+    hyperparameters, hyperparameter_indices, default_values = _get_hyperparameters_from_tree(tree)
 
     if not hyperparameters:
         # Cant optimise a tree with no tunable args, so just return a copy of the original tree
@@ -48,18 +43,21 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     # to a particular split
     seed = random.randint(0, 1000)
 
-    best = fmin(
-        fn=partial(_objective_function, tree, toolbox, hyperparameter_indices, seed),
-        space=hyperparameters,
-        algo=tpe.suggest,
-        max_evals=evals,
-        trials=trials,
-        verbose=0
-    )
+    try:
+        best = fmin(
+            fn=partial(_objective_function, tree, toolbox, hyperparameter_indices, seed),
+            space=hyperparameters,
+            algo=tpe.suggest,
+            max_evals=evals,
+            trials=trials,
+            verbose=0
+        )
 
-    optimised_params = space_eval(hyperparameters, best)
-
-    tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
+        optimised_params = space_eval(hyperparameters, best)
+        tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
+    except TimeoutError:
+        # If this happens then just return a clone of the original tree since we dont have time to optimise
+        tree = toolbox.clone(tree)
 
     return tree
 
@@ -99,8 +97,11 @@ def _objective_function(tree, toolbox, hyperparameter_indices, seed, *params):
     """
     tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, *params)
 
-    # Dont save in cache or we will get lots of intermediary models in the cache
-    f1 = toolbox.evaluate(tree, seed=seed, timeout=False, save_in_cache=False)[0]
+    f1, _ = toolbox.evaluate(tree, seed=seed)
+
+    # This can occur if a model times out, in this case we want to stop optimisation early
+    if f1 == -inf:
+        raise TimeoutError("Model evaluation timed out")
 
     # Hyperopt minimises, so negate the f1
     return -f1

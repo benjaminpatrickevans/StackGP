@@ -4,9 +4,9 @@ from deap import base, creator, tools, gp
 import random
 import operator
 import time
-from math import inf
 from sklearn.pipeline import Pipeline
 from src.components import CustomPipeline
+from math import inf
 
 
 class Base:
@@ -27,9 +27,6 @@ class Base:
 
         self.max_run_time_mins = max_run_time_mins
         self.max_eval_time_mins = max_eval_time_mins
-
-        # For generating unique models
-        self.cache = {}
 
         self.pset = self.create_pset()
         self.toolbox = self.create_toolbox()
@@ -57,7 +54,10 @@ class Base:
         creator.create('FitnessMulti', base.Fitness, weights=(1.0, -1.0))
 
         # Individuals are represented as trees, the typical GP representation
-        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset, previous_scores=None)
+        creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset,
+                       previous_scores=None,    # We will store the fitness for each gen
+                       generation_created=0     # And then generation when an individual was created
+        )
 
         # Between 1 layer and max depth high
         toolbox.register("expr", customdeap.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
@@ -67,8 +67,7 @@ class Base:
 
         # Mutation
         toolbox.register("expr_mut", customdeap.genHalfAndHalf, min_=0, max_=3)
-        toolbox.register("mutate", customdeap.mutate_choice, pset=self.pset, expr=toolbox.expr_mut,
-                         existing=self.cache, toolbox=toolbox)
+        toolbox.register("mutate", customdeap.mutate_choice, pset=self.pset, expr=toolbox.expr_mut, toolbox=toolbox)
         toolbox.decorate("mutate", gp.staticLimit(key=operator.attrgetter("height"), max_value=self.max_depth))
 
         # The population is just a list of individuals
@@ -114,30 +113,20 @@ class Base:
 
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
-        hof = tools.HallOfFame(1)
 
         hof, self.logbook, generations =\
             search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
                                      stats=stats, verbose=self.verbose)
 
-        #hof, self.logbook, generations =\
-        #    search.eaTimedMuPlusLambda(population=pop, toolbox=self.toolbox, mu=self.pop_size, lambda_=self.pop_size,
-        #                               end_time=self.end_time, stats=stats)
-
         if verbose:
-            print("Best model found:", hof[0], "with fitness of", hof[0].fitness)
-            print("Percentage of unique models:", (len(self.cache) / (generations * self.pop_size)) * 100)
+            print("Total generations", generations)
+            print("Best model found:", hof[0], "with fitness of", hof[0].fitness, "and was found in generation",
+                  hof[0].generation_created)
 
         # Use the model with the heighest fitness
         self.model = hof[0]
         self.callable_model = self.toolbox.compile(hof[0])
         self.callable_model.fit(data_x, data_y)
-
-        print("Pareto front:", [solution.fitness.values for solution in hof])
-
-        # Clear the cache to free memory now we have finished evolution
-        self.cache = {}
-
 
     def _calculate_complexity(self, tree):
         # Complexity measured as the number of estimators in a model.
@@ -151,18 +140,12 @@ class Base:
 
         return self.callable_model.predict(x)
 
-    def _fitness_function(self, individual, x, y, seed=0, timeout=True, save_in_cache=False):
+    def _fitness_function(self, individual, x, y, seed=0, timeout=True):
         seconds_left = self.end_time - time.time()
 
         # Dont evaluate, we need to stop as the time is up
         if timeout and seconds_left <= 0:
             return -inf, inf
-
-        tree_str = str(individual)
-
-        # Avoid recomputing fitness
-        if tree_str in self.cache:
-            return self.cache[tree_str]
 
         model = self.toolbox.compile(individual)
 
@@ -171,21 +154,19 @@ class Base:
             allowed_time_seconds = int(min(seconds_left, self.max_eval_time_mins * 60))
             score = scorer.timed_cross_validation(model, x, y, self.scoring_fn, allowed_time_seconds,
                                                   n_jobs=self.n_jobs, num_folds=3, seed=seed)
+        except TimeoutError as e:
+            return -inf, inf
         except Exception as e:
-            # This can occur if the individual model throws an exception, or if the function times out
+            # This can occur if the individual model throws an exception
             if self.verbose:
                 print("Error occured in eval", e, "setting f1 score to 0")
-                print("Tree was", tree_str)
-            score = 0
+                print("Tree was", individual)
+            score = 0  # F1 score of 0 to try prevent this happening again
 
         complexity = self._calculate_complexity(individual)
 
         # Fitness is the average score (across folds) and the complexity
         fitness = score, complexity
-
-        if save_in_cache:
-            # Store fitness in cache so we don't need to reevaluate
-            self.cache[tree_str] = fitness
 
         return fitness
 

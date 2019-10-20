@@ -1,10 +1,9 @@
 from deap import tools
-from src import customdeap
 import time
 from functools import partial
 import random
 import numpy as np
-
+from math import inf
 
 def _get_best(ind1, ind2):
     # Choose the ind with the highest fitness. Break ties by selecting one with lowest complexity
@@ -20,7 +19,7 @@ def _get_best(ind1, ind2):
         return ind2
 
 
-def pairwise_tournament(individuals, k, toolbox, mutate=False):
+def pairwise_tournament(individuals, k, toolbox):
     """Select the best individual among randomly chosen
     pairs, *k* times. Ties are split
     based on the complexity. The list returned contains
@@ -34,24 +33,27 @@ def pairwise_tournament(individuals, k, toolbox, mutate=False):
     This function uses the :func:`~random.choice` function from the python base
     :mod:`random` module.
     """
-    chosen = []
-
-    for i in range(k):
-        ind1 = random.choice(individuals)
-        ind2 = random.choice(individuals)
-        best = _get_best(ind1, ind2)
-
-        # Clone so we dont accidentally modify ind1 or ind2
-        choice = toolbox.clone(best)
-
-        if mutate:
-            choice, = toolbox.mutate(best)
-            del choice.fitness.values
-
-        # Since we can have duplicates we should clone to avoid issues
-        chosen.append(choice)
+    # Choose best individual from random pairs, k times. Clones the resulting individuals
+    chosen = [toolbox.clone(_get_best(random.choice(individuals), random.choice(individuals)))
+              for _ in range(k)]
 
     return chosen
+
+
+def create_next_generation(generation_number, population, toolbox):
+    # Choose half of the population to be parents. This is done as a 2 way tournament, with replacement.
+    parents = pairwise_tournament(population, len(population) // 2, toolbox)
+
+    # Mutate the parents to produce new child offsprings
+    children = [toolbox.mutate(parent)[0] for parent in parents]
+
+    # Do not inherit previous fitness from parents
+    for child in children:
+        child.previous_scores = None
+        child.generation_created = generation_number
+
+    # The next generation becomes the parents and children
+    return parents + children
 
 
 def elitist_mutations(population, toolbox, end_time, stats=None, verbose=__debug__):
@@ -68,7 +70,7 @@ def elitist_mutations(population, toolbox, end_time, stats=None, verbose=__debug
     gen = 0
 
     while time.time() < end_time:
-        # Need to compute fitness for entire offspring every generation, as the fitness function changes each step
+        # Need to compute fitness for entire population every generation, as the fitness function changes each step
         fitnesses = toolbox.map(partial(toolbox.evaluate, seed=gen), population)
 
         # Store the fitness. The first objective is averaged across all generations. When an individual is created from
@@ -77,86 +79,29 @@ def elitist_mutations(population, toolbox, end_time, stats=None, verbose=__debug
             if ind.previous_scores is None:
                 ind.previous_scores = []
 
-            ind.previous_scores.append(current_fitness[0])
+            # Can be -inf if we timeout when evaluating fitness
+            if current_fitness[0] != -inf:
+                ind.previous_scores.append(current_fitness[0])
 
-            # Use the average f1 score across all generations for first objective.
-            # Average size doesnt make much sense. So just use the current size for second objective
-            ind.fitness.values = np.mean(ind.previous_scores), current_fitness[1],
+                # Use the average f1 score across all generations for first objective.
+                # Average size doesnt make much sense. So just use the current size for second objective
+                ind.fitness.values = np.mean(ind.previous_scores), current_fitness[1],
 
-        # Choose half of the population to be parents. This is done as a 2 way tournament, with replacement.
-        parents = pairwise_tournament(population, len(population) // 2, toolbox)
+        # We need to clear the HOF each generation since the fitness function changes each gen
+        hof.clear()
+        hof.update(population)
 
-        # Mutate the parents to produce new child offsprings
-        children = [toolbox.mutate(parent)[0] for parent in parents]
-
-        # Do not inherit previous fitness from parents
-        for child in children:
-            child.previous_scores = None
-
-        # The next generation becomes the parents and children
-        population[:] = parents + children
-
-        # Update the statistics with the new population
+        # Update the statistics for this generation
         record = stats.compile(population) if stats is not None else {}
         logbook.record(gen=gen, **record)
         if verbose:
             print(logbook.stream)
 
+        # Now create the next generation
+        population[:] = create_next_generation(gen + 1, population, toolbox)
         gen += 1
 
-    # Update the hall of fame with the generated individuals. We do this outside the loop
-    # since the fitness function changes each evolution.
-    hof.update(population)
-
     return hof, logbook, gen
-
-
-def eaTimedMuPlusLambda(population, toolbox, mu, lambda_, end_time, stats=None, verbose=__debug__):
-    """
-        This is the :math:`(\mu + \lambda)` evolutionary algorithm.
-        This is a modification of the DEAP version: eaMuPlusLambda,
-        with the only diference being running for max_time rather
-        than ngen.
-    """
-
-    # For floating point numbers, define a "tolerance" for the pareto front
-    similarity = lambda ind1, ind2: np.allclose(ind1.fitness.values, ind2.fitness.values)
-    hof = tools.ParetoFront(similar=similarity)
-
-    logbook = tools.Logbook()
-    logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
-
-    offspring = population[:]
-    gen = 0
-
-    while time.time() < end_time:
-        # Evaluate the individuals with an invalid fitness
-        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        # Cache the results of the evaluation
-        fitnesses = toolbox.map(partial(toolbox.evaluate, save_in_cache=True), invalid_ind)
-
-        for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit
-
-        # Update the hall of fame with the generated individuals
-        hof.update(offspring)
-
-        # Select the next generation population using NSGA
-        population[:] = tools.selNSGA2(population + offspring, mu, nd="log")
-
-        # Update the statistics with the new population
-        record = stats.compile(population) if stats is not None else {}
-        logbook.record(gen=gen, nevals=len(invalid_ind), **record)
-        if verbose:
-            print(logbook.stream)
-
-        gen += 1
-
-        # The off spring is the result of mutating best pairs
-        offspring = pairwise_tournament(population, lambda_, toolbox, mutate=True)
-
-    return hof, logbook, gen
-
 
 
 
