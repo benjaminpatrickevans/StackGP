@@ -5,8 +5,11 @@ import random
 import operator
 import time
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import label_binarize
+from sklearn.model_selection import train_test_split
 from src.components import CustomPipeline
 from math import inf
+from collections import Counter
 
 
 class Base:
@@ -56,10 +59,11 @@ class Base:
         # Individuals are represented as trees, the typical GP representation
         creator.create("Individual", gp.PrimitiveTree, fitness=creator.FitnessMulti, pset=self.pset,
                        previous_scores=None,    # We will store the fitness for each gen
-                       generation_created=0     # And then generation when an individual was created
+                       generation_created=0,   # And then generation when an individual was created,
+                       behaviour=None,  # For novelty search
         )
 
-        # Between 1 layer and max depth high
+        # Between 1 layer and 3 high
         toolbox.register("expr", customdeap.genHalfAndHalf, pset=self.pset, min_=0, max_=3)
 
         # Individuals should be made based on the expr method above
@@ -111,12 +115,29 @@ class Base:
         # Register the fitness function, pass1ing in our training data for evaluation
         self.toolbox.register("evaluate", self._fitness_function, x=data_x, y=data_y)
 
+        class_counts = Counter(data_y)
+        possible_classes = list(str(key) for key in class_counts.keys())
+        most_common_class = str(class_counts.most_common(1)[0][0])
+
+        train_x, valid_x, train_y, valid_y = train_test_split(data_x, data_y, test_size = 0.33,
+                                                            random_state=self.random_state)
+
+        self.toolbox.register("behaviour", self._behaviour,
+                              train_x=train_x, valid_x=valid_x,
+                              train_y=train_y, valid_y=valid_y,
+                              possible_classes=possible_classes,
+                              default_prediction=most_common_class)
+
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
 
         hof, self.logbook, generations =\
-            search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
+            search.novelty_search(population=pop, toolbox=self.toolbox, end_time=self.end_time,
                                      stats=stats, verbose=self.verbose)
+
+        #hof, self.logbook, generations =\
+        #    search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
+        #                             stats=stats, verbose=self.verbose)
 
         if verbose:
             print("Total generations", generations)
@@ -139,6 +160,33 @@ class Base:
             raise Exception("Must call fit before predict")
 
         return self.callable_model.predict(x)
+
+    def _behaviour(self, individual, train_x, valid_x, train_y, valid_y, possible_classes, default_prediction):
+        '''
+            The behaviour of a model is repres
+        :param individual:
+        :param x:
+        :param y:
+        :return:
+        '''
+        model = self.toolbox.compile(individual)
+
+        try:
+            model.fit(train_x, train_y)
+            predictions = model.predict(valid_x)
+        except Exception as e:
+            print("Exception", e)
+            # Nothing we can do. Just return the default for all
+            predictions = default_prediction * len(valid_x)
+
+        # Make sure we predicting strings
+        predictions = [str(y) for y in predictions]
+
+        # Convert to a one hot encoding since we cant quantiy a "difference" between 2 categorical classes
+        behaviour = label_binarize(predictions, possible_classes).flatten()
+
+        return behaviour
+
 
     def _fitness_function(self, individual, x, y, seed=0, timeout=True):
         seconds_left = self.end_time - time.time()

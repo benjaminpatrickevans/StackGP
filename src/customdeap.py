@@ -183,6 +183,9 @@ def _get_children_indices(node, subtree):
 def mutate_choice(individual, pset, expr, toolbox):
     methods = [mutShrink, mutNodeReplacement, mutUniform, mutInsert, mutBayesian]
 
+    # TODO: Add bayesian back?
+    methods = [mutShrink, mutNodeReplacement, mutUniform, mutInsert]
+
     # Try each mutation method until we get an individual different to the input
     for method in shuffled(methods):
         ind = method(individual, pset, expr, toolbox)

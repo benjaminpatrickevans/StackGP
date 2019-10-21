@@ -19,49 +19,36 @@ classifier_map = {
     },
 
     DecisionTreeClassifier: {
-        'criterion': ["gini", "entropy"],
         'max_depth': range(1, 11),
-        'min_samples_split': range(2, 21),
-        'min_samples_leaf': range(1, 21)
     },
 
     ExtraTreesClassifier: {
-        #TODO: We should optimise over range of n_estimators
-        'n_estimators': [100],
-        'criterion': ["gini", "entropy"],
+        'n_estimators': [10, 50, 100, 200],
         'max_features': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
        0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
-        'min_samples_split': range(2, 21),
-        'min_samples_leaf': range(1, 21),
-        'bootstrap': [True, False]
     },
 
     RandomForestClassifier: {
-        'n_estimators': [100],
-        'criterion': ["gini", "entropy"],
-        'max_features': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
-       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.],
-        'min_samples_split': range(2, 21),
-        'min_samples_leaf':  range(1, 21),
-        'bootstrap': [True, False]
+        'n_estimators': [10, 50, 100, 200],
+        'max_features': ["auto", None],
     },
 
     GradientBoostingClassifier: {
-        'n_estimators': [100],
+        'n_estimators': [10, 50, 100, 200],
         'learning_rate': [1e-3, 1e-2, 1e-1, 0.5, 1.],
+        'max_features': ["auto", None],
+    },
+
+    XGBClassifier: {
+        'n_estimators': [10, 50, 100, 200],
         'max_depth': range(1, 11),
-        'min_samples_split': range(2, 21),
-        'min_samples_leaf': range(1, 21),
-        'subsample': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
-       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
-        'max_features': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
-       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
+        'learning_rate': [1e-3, 1e-2, 1e-1, 0.5, 1.],
+        'nthread': [1]
     },
 
     KNeighborsClassifier: {
         'n_neighbors': range(1, 101),
         'weights': ["uniform", "distance"],
-        'p': [1, 2]
     },
 
     LinearSVC: {
@@ -75,17 +62,8 @@ classifier_map = {
         'penalty': ["l1", "l2"],
         'C': [1e-4, 1e-3, 1e-2, 1e-1, 0.5, 1., 5., 10., 15., 20., 25.],
     },
-
-    XGBClassifier: {
-        'n_estimators': [100],
-        'max_depth': range(1, 11),
-        'learning_rate': [1e-3, 1e-2, 1e-1, 0.5, 1.],
-        'subsample': [0.05, 0.1 , 0.15, 0.2 , 0.25, 0.3 , 0.35, 0.4 , 0.45, 0.5 , 0.55,
-       0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95, 1.  ],
-        'min_child_weight': range(1, 21),
-        'nthread': [1]
-    },
 }
+
 
 def add_combiners(pset):
     """
