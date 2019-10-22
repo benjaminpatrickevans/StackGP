@@ -8,6 +8,11 @@ from sklearn.metrics.pairwise import euclidean_distances
 
 
 def _get_best(ind1, ind2):
+    if not ind1.fitness.valid:
+        return ind2
+    elif not ind2.fitness.valid:
+        return ind1
+
     # Choose the ind with the highest fitness. Break ties by selecting one with lowest complexity
     if ind1.fitness.values[0] == ind2.fitness.values[0]:
         # Tie. Choose lowest complexity

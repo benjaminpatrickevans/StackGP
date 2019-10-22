@@ -84,8 +84,8 @@ class Base:
 
     @staticmethod
     def create_stats():
-        stats_fit = tools.Statistics(key=lambda ind: ind.fitness.values[0])
-        stats_size = tools.Statistics(key=lambda ind: ind.fitness.values[1])
+        stats_fit = tools.Statistics(key=lambda ind: ind.fitness.values[0] if ind.fitness.valid else -inf)
+        stats_size = tools.Statistics(key=lambda ind: ind.fitness.values[1] if ind.fitness.valid else inf)
 
         mstats = tools.MultiStatistics(fitness=stats_fit, complexity=stats_size)
 
@@ -131,13 +131,13 @@ class Base:
         pop = self.toolbox.population(n=self.pop_size)
         stats = Base.create_stats()
 
-        hof, self.logbook, generations =\
-            search.novelty_search(population=pop, toolbox=self.toolbox, end_time=self.end_time,
-                                     stats=stats, verbose=self.verbose)
-
         #hof, self.logbook, generations =\
-        #    search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
+        #    search.novelty_search(population=pop, toolbox=self.toolbox, end_time=self.end_time,
         #                             stats=stats, verbose=self.verbose)
+
+        hof, self.logbook, generations =\
+            search.elitist_mutations(population=pop, toolbox=self.toolbox, end_time=self.end_time,
+                                     stats=stats, verbose=self.verbose)
 
         if verbose:
             print("Total generations", generations)
