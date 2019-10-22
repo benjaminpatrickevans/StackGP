@@ -7,6 +7,9 @@ import numpy as np
 from hyperopt.pyll.base import Literal
 import random
 from math import inf
+import contextlib
+import sys
+
 
 # The code below is a hacky fix. len(RandomForestClassifier) throws
 # an exception when called, here we can catch that exception AttributeError)
@@ -23,7 +26,7 @@ def safe__init__(self, obj=None):
 
 Literal.__init__ = safe__init__
 
-def bayesian_parameter_optimisation(tree, toolbox, evals=10):
+def bayesian_parameter_optimisation(tree, toolbox, max_evals_without_progress=10):
     """
     Optimises the parameters in tree with bayesian optimisation.
     Returns a copy of the tree with the updated hyperparameters.
@@ -36,6 +39,8 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
         # Cant optimise a tree with no tunable args, so just return a copy of the original tree
         return toolbox.clone(tree)
 
+    print("Original tree", tree)
+
     # Start the search at the existing values rather than randomly
     trials = generate_trials_to_calculate([default_values])
 
@@ -43,22 +48,44 @@ def bayesian_parameter_optimisation(tree, toolbox, evals=10):
     # to a particular split
     seed = random.randint(0, 1000)
 
-    try:
-        best = fmin(
-            fn=partial(_objective_function, tree, toolbox, hyperparameter_indices, seed),
-            space=hyperparameters,
-            algo=tpe.suggest,
-            max_evals=evals,
-            trials=trials,
-            verbose=0
-        )
+    stopping_critera_met = False
+    optimised_params = space_eval(hyperparameters, default_values)
 
-        optimised_params = space_eval(hyperparameters, best)
-        tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
-    except TimeoutError:
-        # If this happens then just return a clone of the original tree since we dont have time to optimise
-        tree = toolbox.clone(tree)
+    n_iters_without_progress = 0
+    best_loss = inf
 
+    # Run one iteration of bayesian optimisation till stopping criteria is met (timeout or no improvement)
+    while not stopping_critera_met:
+        try:
+            # A single iteration of bayesian optimisation
+            best = fmin(
+                fn=partial(_objective_function, tree, toolbox, hyperparameter_indices, seed),
+                space=hyperparameters,
+                algo=tpe.suggest,
+                max_evals=len(trials) + 1,
+                trials=trials,
+                show_progressbar=False
+            )
+            optimised_params = space_eval(hyperparameters, best)
+
+            # Check if progress was made
+            current_loss = trials.losses()[-1]
+
+            if current_loss >= best_loss:
+                n_iters_without_progress += 1
+            else:
+                n_iters_without_progress = 0
+
+            best_loss = min(current_loss, best_loss)
+
+        except TimeoutError:
+            # Ran out of time while optimising. Break out of loop and return best we have
+            break
+
+        stopping_critera_met = n_iters_without_progress >= max_evals_without_progress
+
+    tree = _fill_with_hyperparameters(tree, toolbox, hyperparameter_indices, optimised_params)
+    print("Optimised tree", tree)
     return tree
 
 

@@ -384,7 +384,7 @@ def mutBayesian(individual, pset, expr, toolbox):
     :returns: A tuple of one tree.
     """
 
-    ind = bayesian_parameter_optimisation(individual, toolbox, evals=20)
+    ind = bayesian_parameter_optimisation(individual, toolbox)
 
     if str(ind) != str(individual):
         # Found a unique one, so return it
