@@ -2,7 +2,7 @@ xgboost==0.90
 auto_sklearn==0.5.2
 deap==1.2.2
 scikit_optimize==0.5.2
-numpy==1.15.0
+numpy==1.22.0
 pandas==0.23.0
 TPOT==0.10.2
 sklearn_deap==0.2.4
