@@ -6,7 +6,7 @@ numpy==1.15.0
 pandas==0.23.0
 TPOT==0.10.2
 sklearn_deap==0.2.4
-scipy==1.1.0
+scipy==1.10.0
 h2o==3.26.0.5
 evolutionary_search==0.1
 scikit_learn==0.21.3
